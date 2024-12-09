@@ -1,12 +1,17 @@
 package models
 
+import "time"
+
 type User struct {
     ID            string      `json:"id" firestore:"id"`
+    Name          string      `json:"name" firestore:"name"`
+    Email         string      `json:"email" firestore:"email"`
     Profile       Profile     `json:"profile" firestore:"profile"`
     FollowedNodes []string    `json:"followedNodes" firestore:"followedNodes"`
     Following     []string    `json:"following" firestore:"following"`
     StoreID       string      `json:"storeId,omitempty" firestore:"storeId,omitempty"`
     Achievements  []Achievement `json:"achievements" firestore:"achievements"`
+    CreatedAt     time.Time    `json:"createdAt" firestore:"createdAt"`
 }
 
 type Profile struct {

@@ -1,89 +1,218 @@
-# Nodo Social
+# NODO.SOCIAL - Social Impact Platform
 
-A Crowdfunding Social Platform and Collaborative Marketplace connecting people working on social, environmental, and animal causes with individuals and businesses who want to support them.
+A platform designed to connect people and entrepreneurs with social, environmental, and animal causes through thematic nodes.
 
-## Project Structure
+## Project Overview
 
+Nodo.social is a platform that facilitates meaningful connections between social initiatives and supporters, leveraging technology to maximize social impact.
+
+## Core Features
+
+### Node Management
+
+- Publication of causes (social/environmental/animal)
+- Update system
+- Category-based feed
+- Product approval system
+- Impact metrics
+
+### User Connections
+
+- Node following
+- User following
+- Personalized feed
+- Activity notifications
+
+### Store Management
+
+- Product catalog
+- Node linking
+- Support percentages
+- Direct contact (WhatsApp)
+
+### User Engagement
+
+- Participation achievements
+- Impact ranking
+- Recognition badges
+
+## Technical Stack
+
+### Backend (Go/Firebase)
+
+- Language: Go 1.20
+- Architecture: Clean Architecture
+- Infrastructure: Firebase Cloud Functions
+
+#### Project Structure
+
+```go
+functions/
+├── cmd/                    # Application entry points
+├── domain/                # Business rules and entities
+│   ├── models/            # Domain models
+│   └── repositories/      # Repository interfaces
+├── dto/                   # Data Transfer Objects
+├── interfaces/            # Interface adapters
+│   ├── http/             # HTTP Handlers
+│   └── cloud/            # Cloud Functions
+├── internal/              # Shared internal code
+│   └── config/           # Centralized configuration
+└── services/             # Business logic
 ```
-nodo.social/
-├── frontend/               # Next.js frontend application
-│   ├── src/
-│   │   ├── app/           # Next.js app directory
-│   │   ├── components/    # Reusable components
-│   │   ├── lib/          # Utilities and helpers
-│   │   └── types/        # TypeScript type definitions
-│   └── public/           # Static files
-├── functions/             # Firebase Cloud Functions (Go)
-│   ├── cmd/              # Command line tools
-│   ├── internal/         # Internal packages
-│   └── pkg/              # Public packages
-└── config/               # Configuration files
-```
 
-## Technologies
+#### Architecture Overview
 
-- Frontend: Next.js with TypeScript
-- Backend: Firebase Cloud Functions with Go
-- Database: Firestore
+1. **Domain Layer** (`domain/`)
+
+   - Contains business entities and repository interfaces
+   - Independent of external frameworks
+
+1. **Service Layer** (`services/`)
+
+   - Implements business logic
+   - Uses repository interfaces from domain layer
+
+1. **Interface Layer** (`interfaces/`)
+
+   - HTTP handlers and Cloud Functions
+   - Adapts external requests to internal services
+
+1. **Infrastructure Layer** (`internal/`)
+
+   - Configuration and external service implementations
+   - Firebase and database implementations
+
+### Frontend Technologies
+
+- Framework: Next.js
+- Language: TypeScript
+- Styling: TailwindCSS
+- State Management: React Context/Redux
+
+### Cloud Infrastructure
+
 - Authentication: Firebase Auth
-- Storage: Firebase Storage
-- Styling: TailwindCSS with Dracula theme colors
+- Database: Cloud Firestore
+- Storage: Cloud Storage
+- Functions: Cloud Functions
+- CDN: Firebase Hosting
 
-## Configuración del Entorno
+## Getting Started
 
-### Frontend (Next.js)
-1. Copia el archivo de configuración de entorno:
-   ```bash
-   cp frontend/.env.template frontend/.env.local
-   ```
-2. Actualiza las variables en `frontend/.env.local` con tus credenciales de Firebase:
-   ```env
-   NEXT_PUBLIC_FIREBASE_API_KEY=tu-api-key
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=tu-auth-domain
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=tu-project-id
-   ...
-   ```
+### Prerequisites
 
-### Backend (Firebase Functions con Go)
-1. Copia el archivo de configuración de entorno:
-   ```bash
-   cp functions/.env.template functions/.env
-   ```
-2. Actualiza las variables en `functions/.env` con tus credenciales de servicio de Firebase:
-   ```env
-   FIREBASE_PROJECT_ID=tu-project-id
-   FIREBASE_PRIVATE_KEY_ID=tu-private-key-id
-   FIREBASE_PRIVATE_KEY=tu-private-key
-   ...
-   ```
+- Go 1.20 or higher
+- Node.js 16 or higher
+- Firebase CLI
+- Google Cloud SDK
 
-⚠️ **IMPORTANTE**: Nunca subas los archivos `.env` al control de versiones. Estos archivos contienen información sensible y ya están incluidos en `.gitignore`.
+### Installation
 
-## Setup Instructions
+1. Clone the repository:
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+git clone https://github.com/kha0sys/nodo.social.git
+cd nodo.social
+```
 
-2. Set up Firebase credentials:
-   - Copy `config/serviceAccountKey.template.json` to `config/serviceAccountKey.json`
-   - Fill in your Firebase service account credentials
+1. Install backend dependencies:
 
-3. Start development server:
-   ```bash
-   npm run dev
-   ```
+```bash
+cd functions
+go mod tidy
+```
 
-## Clean Architecture
+1. Install frontend dependencies:
 
-This project follows Clean Architecture principles:
+```bash
+cd frontend
+npm install
+```
 
-- Domain Layer: Core business logic
-- Application Layer: Use cases and application logic
-- Interface Layer: Controllers and presenters
-- Infrastructure Layer: External services and frameworks
+1. Set up environment variables:
+
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+### Running Locally
+
+1. Start the backend:
+
+```bash
+cd functions
+go run cmd/main.go
+```
+
+1. Start the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+## Development Guidelines
+
+### Code Organization
+
+- Follow Clean Architecture principles
+- Use DTOs for data transfer
+- Implement interfaces for external dependencies
+- Keep business logic in services
+
+### Development Standards
+
+- Write unit tests for business logic
+- Document public interfaces
+- Use dependency injection
+- Follow Go and TypeScript best practices
+
+### Version Control
+
+1. Create feature branches from `main`
+1. Use conventional commits
+1. Submit PRs for review
+1. Merge to `main` after approval
+
+## Testing
+
+### Backend Testing
+
+```bash
+cd functions
+go test ./...
+```
+
+### Frontend Testing
+
+```bash
+cd frontend
+npm test
+```
+
+## Deployment
+
+### Backend Deployment
+
+```bash
+cd functions
+firebase deploy --only functions
+```
+
+### Frontend Deployment
+
+```bash
+cd frontend
+npm run build
+firebase deploy --only hosting
+```
 
 ## Contributing
 
-Please follow the clean code principles and architecture guidelines when contributing to this project.
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
