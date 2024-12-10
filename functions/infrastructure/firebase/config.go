@@ -41,3 +41,4 @@ func (fc *FirebaseConfig) GetDB() *db.Client {
 func (fc *FirebaseConfig) GetApp() *firebase.App {
     return fc.app
 }
+

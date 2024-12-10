@@ -1,149 +1,114 @@
 package repositories
 
 import (
-    "context"
-    "fmt"
-    "time"
+	"context"
 
-    "cloud.google.com/go/firestore"
-    "github.com/kha0sys/nodo.social/domain/models"
-    "google.golang.org/api/iterator"
+	"cloud.google.com/go/firestore"
+	"github.com/kha0sys/nodo.social/functions/domain/models"
+	"google.golang.org/api/iterator"
 )
 
+// UserRepository define la interfaz para operaciones con usuarios
 type UserRepository interface {
-    Create(ctx context.Context, user *models.User) error
-    Get(ctx context.Context, id string) (*models.User, error)
-    Update(ctx context.Context, user *models.User) error
-    Delete(ctx context.Context, id string) error
-    AddFollower(ctx context.Context, userID, followerID string) error
-    RemoveFollower(ctx context.Context, userID, followerID string) error
-    GetFollowers(ctx context.Context, userID string) ([]string, error)
-    GetActivity(ctx context.Context, userID string, filters models.UserActivityFilters) ([]interface{}, error)
+	Create(ctx context.Context, user *models.User) error
+	Get(ctx context.Context, userID string) (*models.User, error)
+	Update(ctx context.Context, user *models.User) error
+	Delete(ctx context.Context, userID string) error
+	GetFollowers(ctx context.Context, userID string) ([]*models.User, error)
+	GetTotalUsers(ctx context.Context) (int, error)
+	GetActiveUsers(ctx context.Context) (int, error)
 }
 
+// FirestoreUserRepository implementa UserRepository usando Firestore
 type FirestoreUserRepository struct {
-    client *firestore.Client
+	client     *firestore.Client
+	collection string
 }
 
+// NewFirestoreUserRepository crea una nueva instancia de FirestoreUserRepository
 func NewFirestoreUserRepository(client *firestore.Client) *FirestoreUserRepository {
-    return &FirestoreUserRepository{
-        client: client,
-    }
+	return &FirestoreUserRepository{
+		client:     client,
+		collection: "users",
+	}
 }
 
+// Create crea un nuevo usuario en Firestore
 func (r *FirestoreUserRepository) Create(ctx context.Context, user *models.User) error {
-    _, err := r.client.Collection("users").Doc(user.ID).Set(ctx, user)
-    if err != nil {
-        return fmt.Errorf("error al crear usuario: %v", err)
-    }
-    return nil
+	_, err := r.client.Collection(r.collection).Doc(user.ID).Set(ctx, user)
+	return err
 }
 
-func (r *FirestoreUserRepository) Get(ctx context.Context, id string) (*models.User, error) {
-    doc, err := r.client.Collection("users").Doc(id).Get(ctx)
-    if err != nil {
-        return nil, fmt.Errorf("error al obtener usuario: %v", err)
-    }
-    var user models.User
-    if err := doc.DataTo(&user); err != nil {
-        return nil, fmt.Errorf("error al deserializar usuario: %v", err)
-    }
-    return &user, nil
+// Delete elimina un usuario de Firestore
+func (r *FirestoreUserRepository) Delete(ctx context.Context, userID string) error {
+	_, err := r.client.Collection(r.collection).Doc(userID).Delete(ctx)
+	return err
 }
 
+// Get obtiene un usuario de Firestore por su ID
+func (r *FirestoreUserRepository) Get(ctx context.Context, userID string) (*models.User, error) {
+	doc, err := r.client.Collection(r.collection).Doc(userID).Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var user models.User
+	if err := doc.DataTo(&user); err != nil {
+		return nil, err
+	}
+
+	user.ID = doc.Ref.ID
+	return &user, nil
+}
+
+// Update actualiza un usuario existente en Firestore
 func (r *FirestoreUserRepository) Update(ctx context.Context, user *models.User) error {
-    _, err := r.client.Collection("users").Doc(user.ID).Set(ctx, user)
-    if err != nil {
-        return fmt.Errorf("error al actualizar usuario: %v", err)
-    }
-    return nil
+	_, err := r.client.Collection(r.collection).Doc(user.ID).Set(ctx, user, firestore.MergeAll)
+	return err
 }
 
-func (r *FirestoreUserRepository) Delete(ctx context.Context, id string) error {
-    _, err := r.client.Collection("users").Doc(id).Delete(ctx)
-    if err != nil {
-        return fmt.Errorf("error al eliminar usuario: %v", err)
-    }
-    return nil
+// GetFollowers obtiene los seguidores de un usuario
+func (r *FirestoreUserRepository) GetFollowers(ctx context.Context, userID string) ([]*models.User, error) {
+	var followers []*models.User
+	iter := r.client.Collection(r.collection).Where("following", "array-contains", userID).Documents(ctx)
+	
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		var user models.User
+		if err := doc.DataTo(&user); err != nil {
+			return nil, err
+		}
+		user.ID = doc.Ref.ID
+		followers = append(followers, &user)
+	}
+
+	return followers, nil
 }
 
-func (r *FirestoreUserRepository) AddFollower(ctx context.Context, userID, followerID string) error {
-    _, err := r.client.Collection("users").Doc(userID).Collection("followers").Doc(followerID).Set(ctx, map[string]interface{}{
-        "followerID": followerID,
-        "followedAt": time.Now(),
-    })
-    if err != nil {
-        return fmt.Errorf("error al agregar seguidor: %v", err)
-    }
-    return nil
+// GetTotalUsers obtiene el número total de usuarios
+func (r *FirestoreUserRepository) GetTotalUsers(ctx context.Context) (int, error) {
+	docs, err := r.client.Collection(r.collection).Documents(ctx).GetAll()
+	if err != nil {
+		return 0, err
+	}
+	return len(docs), nil
 }
 
-func (r *FirestoreUserRepository) RemoveFollower(ctx context.Context, userID, followerID string) error {
-    _, err := r.client.Collection("users").Doc(userID).Collection("followers").Doc(followerID).Delete(ctx)
-    if err != nil {
-        return fmt.Errorf("error al eliminar seguidor: %v", err)
-    }
-    return nil
-}
-
-func (r *FirestoreUserRepository) GetFollowers(ctx context.Context, userID string) ([]string, error) {
-    iter := r.client.Collection("users").Doc(userID).Collection("followers").Documents(ctx)
-    var followers []string
-
-    for {
-        doc, err := iter.Next()
-        if err == iterator.Done {
-            break
-        }
-        if err != nil {
-            return nil, fmt.Errorf("error al obtener seguidores: %v", err)
-        }
-
-        var data map[string]interface{}
-        if err := doc.DataTo(&data); err != nil {
-            return nil, fmt.Errorf("error al deserializar seguidor: %v", err)
-        }
-        if followerID, ok := data["followerID"].(string); ok {
-            followers = append(followers, followerID)
-        }
-    }
-
-    return followers, nil
-}
-
-func (r *FirestoreUserRepository) GetActivity(ctx context.Context, userID string, filters models.UserActivityFilters) ([]interface{}, error) {
-    query := r.client.Collection("users").Doc(userID).Collection("activity").OrderBy("timestamp", firestore.Desc)
-    
-    if filters.LastTimestamp > 0 {
-        query = query.StartAfter(time.Unix(filters.LastTimestamp, 0))
-    }
-    
-    if filters.Type != "" && filters.Type != "all" {
-        query = query.Where("type", "==", filters.Type)
-    }
-    
-    if filters.Limit > 0 {
-        query = query.Limit(filters.Limit)
-    }
-
-    iter := query.Documents(ctx)
-    var activities []interface{}
-
-    for {
-        doc, err := iter.Next()
-        if err == iterator.Done {
-            break
-        }
-        if err != nil {
-            return nil, fmt.Errorf("error al obtener actividades: %v", err)
-        }
-
-        var activity map[string]interface{}
-        if err := doc.DataTo(&activity); err != nil {
-            return nil, fmt.Errorf("error al deserializar actividad: %v", err)
-        }
-        activities = append(activities, activity)
-    }
-
-    return activities, nil
+// GetActiveUsers obtiene el número de usuarios activos
+func (r *FirestoreUserRepository) GetActiveUsers(ctx context.Context) (int, error) {
+	docs, err := r.client.Collection(r.collection).
+		Where("active", "==", true).
+		Documents(ctx).
+		GetAll()
+	if err != nil {
+		return 0, err
+	}
+	return len(docs), nil
 }

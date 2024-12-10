@@ -3,21 +3,22 @@ package dto
 import (
 	"time"
 
-	"github.com/kha0sys/nodo.social/domain/models"
+	"github.com/kha0sys/nodo.social/functions/domain/models"
+	"github.com/kha0sys/nodo.social/functions/domain/models/contact"
 )
 
 // StoreDTO representa los datos de una tienda para transferencia
 // entre capas de la aplicación
 type StoreDTO struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Contact     models.ContactInfo `json:"contact"`
-	UserID      string            `json:"userId"`
-	Logo        string            `json:"logo"`
-	Products    []string          `json:"products"`
-	CreatedAt   time.Time         `json:"createdAt"`
-	UpdatedAt   time.Time         `json:"updatedAt"`
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Contact     contact.ContactInfo `json:"contact"`
+	UserID      string             `json:"userId"`
+	Logo        string             `json:"logo"`
+	Products    []string           `json:"products"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	UpdatedAt   time.Time          `json:"updatedAt"`
 }
 
 // ToModel convierte el DTO a un modelo Store

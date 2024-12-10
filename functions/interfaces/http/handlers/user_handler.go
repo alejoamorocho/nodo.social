@@ -4,8 +4,8 @@ import (
     "encoding/json"
     "net/http"
     "github.com/gorilla/mux"
-    "github.com/kha0sys/nodo.social/domain/dto"
-    "github.com/kha0sys/nodo.social/services"
+    "github.com/kha0sys/nodo.social/functions/domain/dto"
+    "github.com/kha0sys/nodo.social/functions/services"
 )
 
 // UserHandler maneja las peticiones HTTP relacionadas con usuarios
@@ -28,7 +28,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    user, err := h.userService.CreateUser(r.Context(), userDTO)
+    user, err := h.userService.CreateUser(r.Context(), userDTO.ToModel())
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return

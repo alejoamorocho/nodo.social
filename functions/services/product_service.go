@@ -2,80 +2,169 @@ package services
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/kha0sys/nodo.social/domain/models"
-	"github.com/kha0sys/nodo.social/domain/repositories"
-	"github.com/kha0sys/nodo.social/domain/dto"
+	"github.com/kha0sys/nodo.social/functions/domain/models"
+	"github.com/kha0sys/nodo.social/functions/domain/repositories"
 )
 
-// ProductService encapsula la lógica de negocio relacionada con productos
+// ProductService maneja la lógica de negocio relacionada con productos
 type ProductService struct {
 	productRepo repositories.ProductRepository
+	nodeRepo    repositories.NodeRepository
 }
 
 // NewProductService crea una nueva instancia de ProductService
-func NewProductService(productRepo repositories.ProductRepository) *ProductService {
+func NewProductService(productRepo repositories.ProductRepository, nodeRepo repositories.NodeRepository) *ProductService {
 	return &ProductService{
 		productRepo: productRepo,
+		nodeRepo:    nodeRepo,
 	}
 }
 
 // CreateProduct crea un nuevo producto
-func (s *ProductService) CreateProduct(ctx context.Context, productDTO *dto.ProductDTO) (*models.Product, error) {
-	product := productDTO.ToModel()
-	if err := product.Validate(); err != nil {
-		return nil, err
+func (s *ProductService) CreateProduct(ctx context.Context, product *models.Product) error {
+	if err := s.productRepo.Create(ctx, product); err != nil {
+		return fmt.Errorf("error creating product: %v", err)
 	}
 
-	if err := s.productRepo.Create(ctx, product); err != nil {
-		return nil, err
+	// Actualizar la lista de productos del nodo
+	node, err := s.nodeRepo.Get(ctx, product.NodeID)
+	if err != nil {
+		return fmt.Errorf("error getting node: %v", err)
 	}
-	return product, nil
+
+	node.Products = append(node.Products, product.ID)
+	if err := s.nodeRepo.Update(ctx, node); err != nil {
+		return fmt.Errorf("error updating node: %v", err)
+	}
+
+	return nil
 }
 
 // GetProduct obtiene un producto por su ID
-func (s *ProductService) GetProduct(ctx context.Context, id string) (*models.Product, error) {
-	return s.productRepo.Get(ctx, id)
-}
-
-// UpdateProduct actualiza un producto existente
-func (s *ProductService) UpdateProduct(ctx context.Context, productDTO *dto.ProductDTO) (*models.Product, error) {
-	product := productDTO.ToModel()
-	if err := product.Validate(); err != nil {
-		return nil, err
-	}
-
-	if err := s.productRepo.Update(ctx, product); err != nil {
-		return nil, err
+func (s *ProductService) GetProduct(ctx context.Context, productID string) (*models.Product, error) {
+	product, err := s.productRepo.Get(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting product: %v", err)
 	}
 	return product, nil
 }
 
-// DeleteProduct elimina un producto
-func (s *ProductService) DeleteProduct(ctx context.Context, id string) error {
-	return s.productRepo.Delete(ctx, id)
+// UpdateProduct actualiza un producto existente
+func (s *ProductService) UpdateProduct(ctx context.Context, product *models.Product) error {
+	if err := s.productRepo.Update(ctx, product); err != nil {
+		return fmt.Errorf("error updating product: %v", err)
+	}
+	return nil
 }
 
-// ListProducts obtiene una lista de productos que coinciden con los criterios de búsqueda
-func (s *ProductService) ListProducts(ctx context.Context, filters map[string]interface{}) ([]*models.Product, error) {
-	return s.productRepo.FindByFilters(ctx, filters)
+// DeleteProduct elimina un producto
+func (s *ProductService) DeleteProduct(ctx context.Context, productID string) error {
+	// Obtener el producto para saber su nodo
+	product, err := s.productRepo.Get(ctx, productID)
+	if err != nil {
+		return fmt.Errorf("error getting product: %v", err)
+	}
+
+	// Eliminar el producto de la lista de productos del nodo
+	node, err := s.nodeRepo.Get(ctx, product.NodeID)
+	if err != nil {
+		return fmt.Errorf("error getting node: %v", err)
+	}
+
+	// Eliminar el ID del producto de la lista del nodo
+	for i, id := range node.Products {
+		if id == productID {
+			node.Products = append(node.Products[:i], node.Products[i+1:]...)
+			break
+		}
+	}
+
+	if err := s.nodeRepo.Update(ctx, node); err != nil {
+		return fmt.Errorf("error updating node: %v", err)
+	}
+
+	// Eliminar el producto
+	if err := s.productRepo.Delete(ctx, productID); err != nil {
+		return fmt.Errorf("error deleting product: %v", err)
+	}
+
+	return nil
 }
 
 // ApproveProduct aprueba un producto para su publicación
-func (s *ProductService) ApproveProduct(ctx context.Context, id string) error {
-	product, err := s.productRepo.Get(ctx, id)
+func (s *ProductService) ApproveProduct(ctx context.Context, productID string) error {
+	product, err := s.productRepo.Get(ctx, productID)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting product: %v", err)
 	}
-	
-	product.ApprovalStatus = "approved"
-	return s.productRepo.Update(ctx, product)
+
+	product.Status = "approved"
+	if err := s.productRepo.Update(ctx, product); err != nil {
+		return fmt.Errorf("error updating product: %v", err)
+	}
+
+	return nil
 }
 
-// GetProductsByNode obtiene los productos asociados a un nodo
+// GetProductsByNode obtiene todos los productos asociados a un nodo
 func (s *ProductService) GetProductsByNode(ctx context.Context, nodeID string) ([]*models.Product, error) {
-	filters := map[string]interface{}{
-		"nodeId": nodeID,
+	products, err := s.productRepo.GetByNode(ctx, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting products by node: %v", err)
 	}
-	return s.productRepo.FindByFilters(ctx, filters)
+	return products, nil
+}
+
+// AddImage añade una imagen a un producto
+func (s *ProductService) AddImage(ctx context.Context, productID string, imageURL string) error {
+	product, err := s.productRepo.Get(ctx, productID)
+	if err != nil {
+		return fmt.Errorf("error getting product: %v", err)
+	}
+
+	product.Images = append(product.Images, imageURL)
+	if err := s.productRepo.Update(ctx, product); err != nil {
+		return fmt.Errorf("error updating product: %v", err)
+	}
+
+	return nil
+}
+
+// RemoveImage elimina una imagen de un producto
+func (s *ProductService) RemoveImage(ctx context.Context, productID string, imageURL string) error {
+	product, err := s.productRepo.Get(ctx, productID)
+	if err != nil {
+		return fmt.Errorf("error getting product: %v", err)
+	}
+
+	for i, img := range product.Images {
+		if img == imageURL {
+			product.Images = append(product.Images[:i], product.Images[i+1:]...)
+			break
+		}
+	}
+
+	if err := s.productRepo.Update(ctx, product); err != nil {
+		return fmt.Errorf("error updating product: %v", err)
+	}
+
+	return nil
+}
+
+// UpdateImages actualiza todas las imágenes de un producto
+func (s *ProductService) UpdateImages(ctx context.Context, productID string, images []string) error {
+	product, err := s.productRepo.Get(ctx, productID)
+	if err != nil {
+		return fmt.Errorf("error getting product: %v", err)
+	}
+
+	product.Images = images
+	
+	if err := s.productRepo.Update(ctx, product); err != nil {
+		return fmt.Errorf("error updating product: %v", err)
+	}
+
+	return nil
 }

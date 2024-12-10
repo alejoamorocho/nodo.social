@@ -1,111 +1,100 @@
 package repositories
 
 import (
-    "context"
-    "fmt"
+	"context"
 
-    "cloud.google.com/go/firestore"
-    "github.com/kha0sys/nodo.social/domain/models"
-    "google.golang.org/api/iterator"
+	"cloud.google.com/go/firestore"
+	"github.com/kha0sys/nodo.social/functions/domain/models"
 )
 
-// ProductRepository define las operaciones disponibles para la persistencia de productos
+// ProductRepository define la interfaz para operaciones con productos
 type ProductRepository interface {
-    Create(ctx context.Context, product *models.Product) error
-    Get(ctx context.Context, id string) (*models.Product, error)
-    Update(ctx context.Context, product *models.Product) error
-    Delete(ctx context.Context, id string) error
-    FindByFilters(ctx context.Context, filters map[string]interface{}) ([]*models.Product, error)
+	Create(ctx context.Context, product *models.Product) error
+	Get(ctx context.Context, productID string) (*models.Product, error)
+	Update(ctx context.Context, product *models.Product) error
+	Delete(ctx context.Context, productID string) error
+	GetByNode(ctx context.Context, nodeID string) ([]*models.Product, error)
 }
 
 // FirestoreProductRepository implementa ProductRepository usando Firestore
 type FirestoreProductRepository struct {
-    client *firestore.Client
+	client     *firestore.Client
+	collection string
 }
 
 // NewFirestoreProductRepository crea una nueva instancia de FirestoreProductRepository
 func NewFirestoreProductRepository(client *firestore.Client) *FirestoreProductRepository {
-    return &FirestoreProductRepository{
-        client: client,
-    }
+	return &FirestoreProductRepository{
+		client:     client,
+		collection: "products",
+	}
 }
 
+// Create crea un nuevo producto en Firestore
 func (r *FirestoreProductRepository) Create(ctx context.Context, product *models.Product) error {
-    if err := product.Validate(); err != nil {
-        return fmt.Errorf("validación fallida: %w", err)
-    }
+	// Preparar el producto para su creación
+	product.BeforeCreate()
 
-    if product.ID == "" {
-        product.ID = r.client.Collection("products").NewDoc().ID
-    }
+	// Si no hay ID, crear uno nuevo
+	if product.ID == "" {
+		doc := r.client.Collection(r.collection).NewDoc()
+		product.ID = doc.ID
+	}
 
-    product.BeforeCreate()
-    
-    _, err := r.client.Collection("products").Doc(product.ID).Set(ctx, product)
-    return err
+	// Crear el documento
+	_, err := r.client.Collection(r.collection).Doc(product.ID).Set(ctx, product)
+	return err
 }
 
-func (r *FirestoreProductRepository) Get(ctx context.Context, id string) (*models.Product, error) {
-    doc, err := r.client.Collection("products").Doc(id).Get(ctx)
-    if err != nil {
-        return nil, fmt.Errorf("error al obtener el producto: %w", err)
-    }
+// Get obtiene un producto por su ID
+func (r *FirestoreProductRepository) Get(ctx context.Context, productID string) (*models.Product, error) {
+	doc, err := r.client.Collection(r.collection).Doc(productID).Get(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-    var product models.Product
-    if err := doc.DataTo(&product); err != nil {
-        return nil, fmt.Errorf("error al deserializar el producto: %w", err)
-    }
-    return &product, nil
+	var product models.Product
+	if err := doc.DataTo(&product); err != nil {
+		return nil, err
+	}
+
+	product.ID = doc.Ref.ID
+	return &product, nil
 }
 
+// Update actualiza un producto existente
 func (r *FirestoreProductRepository) Update(ctx context.Context, product *models.Product) error {
-    if err := product.Validate(); err != nil {
-        return fmt.Errorf("validación fallida: %w", err)
-    }
+	// Preparar el producto para su actualización
+	product.BeforeUpdate()
 
-    product.BeforeUpdate()
-    
-    _, err := r.client.Collection("products").Doc(product.ID).Set(ctx, product)
-    if err != nil {
-        return fmt.Errorf("error al actualizar el producto: %w", err)
-    }
-    return nil
+	_, err := r.client.Collection(r.collection).Doc(product.ID).Set(ctx, product)
+	return err
 }
 
-func (r *FirestoreProductRepository) Delete(ctx context.Context, id string) error {
-    _, err := r.client.Collection("products").Doc(id).Delete(ctx)
-    if err != nil {
-        return fmt.Errorf("error al eliminar el producto: %w", err)
-    }
-    return nil
+// Delete elimina un producto
+func (r *FirestoreProductRepository) Delete(ctx context.Context, productID string) error {
+	_, err := r.client.Collection(r.collection).Doc(productID).Delete(ctx)
+	return err
 }
 
-func (r *FirestoreProductRepository) FindByFilters(ctx context.Context, filters map[string]interface{}) ([]*models.Product, error) {
-    query := r.client.Collection("products").Query
-    
-    // Apply filters to the query
-    for field, value := range filters {
-        query = query.Where(field, "==", value)
-    }
-    
-    iter := query.Documents(ctx)
-    var products []*models.Product
+// GetByNode obtiene todos los productos asociados a un nodo
+func (r *FirestoreProductRepository) GetByNode(ctx context.Context, nodeID string) ([]*models.Product, error) {
+	iter := r.client.Collection(r.collection).Where("nodeId", "==", nodeID).Documents(ctx)
+	
+	var products []*models.Product
+	for {
+		doc, err := iter.Next()
+		if err != nil {
+			break
+		}
 
-    for {
-        doc, err := iter.Next()
-        if err == iterator.Done {
-            break
-        }
-        if err != nil {
-            return nil, fmt.Errorf("error al iterar sobre los productos: %w", err)
-        }
+		var product models.Product
+		if err := doc.DataTo(&product); err != nil {
+			continue
+		}
+		product.ID = doc.Ref.ID
+		products = append(products, &product)
+	}
 
-        var product models.Product
-        if err := doc.DataTo(&product); err != nil {
-            return nil, fmt.Errorf("error al deserializar el producto: %w", err)
-        }
-        products = append(products, &product)
-    }
-
-    return products, nil
+	return products, nil
 }

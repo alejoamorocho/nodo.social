@@ -38,3 +38,4 @@ type Value struct {
     DoubleValue  float64 `json:"doubleValue,omitempty"`
     BooleanValue bool    `json:"booleanValue,omitempty"`
 }
+

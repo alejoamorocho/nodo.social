@@ -6,8 +6,8 @@ import (
     "time"
 
     "github.com/gorilla/mux"
-    "github.com/kha0sys/nodo.social/domain/dto"
-    "github.com/kha0sys/nodo.social/services"
+    "github.com/kha0sys/nodo.social/functions/domain/dto"
+    "github.com/kha0sys/nodo.social/functions/services"
 )
 
 // NodeHandler maneja las peticiones HTTP relacionadas con nodos
@@ -104,3 +104,4 @@ func (h *NodeHandler) RegisterRoutes(r *mux.Router) {
     r.HandleFunc("/nodes/feed", h.GetNodeFeed).Methods("GET")
     r.HandleFunc("/nodes/{id}/follow", h.FollowNode).Methods("POST")
 }
+

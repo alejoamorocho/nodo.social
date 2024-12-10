@@ -46,42 +46,75 @@ Nodo.social is a platform that facilitates meaningful connections between social
 
 #### Project Structure
 
-```go
-functions/
-├── cmd/                    # Application entry points
-├── domain/                # Business rules and entities
-│   ├── models/            # Domain models
-│   └── repositories/      # Repository interfaces
-├── dto/                   # Data Transfer Objects
-├── interfaces/            # Interface adapters
-│   ├── http/             # HTTP Handlers
-│   └── cloud/            # Cloud Functions
-├── internal/              # Shared internal code
-│   └── config/           # Centralized configuration
-└── services/             # Business logic
+```markdown
+nodo.social/
+├── .firebaserc             # Firebase project configuration
+├── config/                 # Configuration files
+├── firebase.json          # Firebase service configuration
+├── firestore.indexes.json # Firestore indexes configuration
+├── firestore.rules        # Firestore security rules
+├── frontend/              # Frontend application
+├── functions/             # Backend services (Go)
+│   ├── domain/           # Business rules and entities
+│   │   ├── models/       # Domain models
+│   │   └── repositories/ # Repository interfaces
+│   ├── infrastructure/   # External services implementation
+│   │   └── firebase/    # Firebase implementations
+│   ├── interfaces/       # Interface adapters
+│   │   └── cloud/       # Cloud Functions
+│   └── go.mod           # Go module definition
+├── package.json          # Node.js project configuration
+├── storage.rules         # Storage security rules
+└── update_imports.ps1    # Import update script
 ```
 
 #### Architecture Overview
 
-1. **Domain Layer** (`domain/`)
+The project follows a Clean Architecture pattern with distinct layers:
 
-   - Contains business entities and repository interfaces
+### Backend Architecture (Go)
+
+1. **Domain Layer** (`functions/domain/`)
+   - Contains core business entities and logic
+   - Defines repository interfaces
    - Independent of external frameworks
+   - Houses business rules and validation
 
-1. **Service Layer** (`services/`)
+2. **Services Layer** (`functions/services/`)
+   - Implements core business logic
+   - Orchestrates domain objects
+   - Handles use case implementation
+   - Maintains business rule integrity
 
-   - Implements business logic
-   - Uses repository interfaces from domain layer
-
-1. **Interface Layer** (`interfaces/`)
-
-   - HTTP handlers and Cloud Functions
+3. **Interface Layer** (`functions/interfaces/`)
+   - HTTP Handlers: REST API endpoints
+   - Cloud Functions: Firebase function handlers
    - Adapts external requests to internal services
+   - Handles request/response transformations
 
-1. **Infrastructure Layer** (`internal/`)
+4. **Infrastructure Layer**
+   - Firebase integration
+   - Database implementations
+   - External service adapters
+   - Configuration management
 
-   - Configuration and external service implementations
-   - Firebase and database implementations
+### Cloud Infrastructure
+
+The project utilizes Firebase services for its cloud infrastructure:
+
+- **Firebase Auth**: User authentication and authorization
+- **Cloud Firestore**: NoSQL database for data storage
+- **Cloud Storage**: File and media storage
+- **Cloud Functions**: Serverless compute platform
+- **Firebase Hosting**: Web application hosting and CDN
+
+### Data Flow
+
+1. External requests come through HTTP endpoints or Firebase triggers
+2. Interface layer adapters process and validate requests
+3. Services layer executes business logic
+4. Domain layer enforces business rules
+5. Infrastructure layer handles external service communication
 
 ### Frontend Technologies
 
@@ -89,14 +122,6 @@ functions/
 - Language: TypeScript
 - Styling: TailwindCSS
 - State Management: React Context/Redux
-
-### Cloud Infrastructure
-
-- Authentication: Firebase Auth
-- Database: Cloud Firestore
-- Storage: Cloud Storage
-- Functions: Cloud Functions
-- CDN: Firebase Hosting
 
 ## Getting Started
 

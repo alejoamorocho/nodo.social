@@ -70,3 +70,4 @@ func InitializeFirebase() (*firebase.App, error) {
 	log.Println("Firebase initialized successfully")
 	return app, nil
 }
+

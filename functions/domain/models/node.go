@@ -23,39 +23,43 @@ const (
 // Los nodos pueden tener seguidores, productos asociados y actualizaciones.
 type Node struct {
 	// ID es el identificador único del nodo
-	ID string `json:"id" firestore:"id"`
-	// Name es el nombre descriptivo del nodo
-	Name string `json:"name" firestore:"name"`
-	// Type indica el tipo de causa que representa el nodo
-	Type NodeType `json:"type" firestore:"type"`
+	ID string `firestore:"-" json:"id"`
 	// Title es el título principal del nodo
-	Title string `json:"title" firestore:"title"`
+	Title string `firestore:"title" json:"title"`
 	// Description es una descripción detallada de la causa
-	Description string `json:"description" firestore:"description"`
+	Description string `firestore:"description" json:"description"`
+	// Type es el tipo de nodo (social, ambiental, animal)
+	Type NodeType `firestore:"type" json:"type"`
 	// UserID es el identificador del usuario que creó el nodo
-	UserID string `json:"userId" firestore:"userId"`
+	UserID string `firestore:"userId" json:"userId"`
 	// Media es una lista de recursos multimedia asociados al nodo
-	Media []string `json:"media" firestore:"media"`
+	Media []string `firestore:"media" json:"media"`
 	// Updates es una lista de actualizaciones sobre la causa
-	Updates []Update `json:"updates" firestore:"updates"`
+	Updates []Update `firestore:"updates" json:"updates"`
 	// Followers es una lista de IDs de usuarios que siguen el nodo
-	Followers []string `json:"followers" firestore:"followers"`
+	Followers []string `firestore:"followers" json:"followers"`
 	// FollowersCount es el número total de seguidores
-	FollowersCount int `json:"followersCount" firestore:"followersCount"`
+	FollowersCount int `firestore:"followersCount" json:"followersCount"`
 	// LinkedProducts es una lista de IDs de productos asociados al nodo
-	LinkedProducts []string `json:"linkedProducts" firestore:"linkedProducts"`
+	LinkedProducts []string `firestore:"linkedProducts" json:"linkedProducts"`
 	// Products es una lista de IDs de productos asociados al nodo
-	Products []string `json:"products" firestore:"products"`
+	Products []string `firestore:"products" json:"products"`
 	// Images es una lista de recursos multimedia asociados al nodo
-	Images []string `json:"images" firestore:"images"`
+	Images []string `firestore:"images" json:"images"`
 	// ApprovalConfig contiene la configuración de aprobación para productos
-	ApprovalConfig ApprovalConfig `json:"approvalConfig" firestore:"approvalConfig"`
+	ApprovalConfig ApprovalConfig `firestore:"approvalConfig" json:"approvalConfig"`
 	// Metrics contiene las métricas de interacción del nodo
-	Metrics InteractionMetrics `json:"metrics" firestore:"metrics"`
+	Metrics InteractionMetrics `firestore:"metrics" json:"metrics"`
 	// CreatedAt es la fecha de creación del nodo
-	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
-	// UpdatedAt es la última fecha de actualización del nodo
-	UpdatedAt time.Time `json:"updatedAt" firestore:"updatedAt"`
+	CreatedAt time.Time `firestore:"createdAt" json:"createdAt"`
+	// UpdatedAt es la fecha de última actualización del nodo
+	UpdatedAt time.Time `firestore:"updatedAt" json:"updatedAt"`
+	// Name es el nombre descriptivo del nodo
+	Name string `firestore:"name" json:"name"`
+	// Tags es una lista de etiquetas asociadas al nodo
+	Tags []string `firestore:"tags,omitempty" json:"tags,omitempty"`
+	// Status es el estado actual del nodo
+	Status string `firestore:"status" json:"status"`
 }
 
 // BeforeCreate prepara el nodo para ser creado inicializando campos requeridos.
@@ -64,6 +68,8 @@ func (n *Node) BeforeCreate() {
 	now := time.Now()
 	n.CreatedAt = now
 	n.UpdatedAt = now
+
+	// Inicializar slices vacíos
 	if n.Media == nil {
 		n.Media = make([]string, 0)
 	}
@@ -73,21 +79,24 @@ func (n *Node) BeforeCreate() {
 	if n.Followers == nil {
 		n.Followers = make([]string, 0)
 	}
-	if n.Products == nil {
-		n.Products = make([]string, 0)
-	}
 	if n.LinkedProducts == nil {
 		n.LinkedProducts = make([]string, 0)
+	}
+	if n.Products == nil {
+		n.Products = make([]string, 0)
 	}
 	if n.Images == nil {
 		n.Images = make([]string, 0)
 	}
+
+	// Inicializar contadores
 	n.FollowersCount = 0
 	n.Metrics = InteractionMetrics{
-		Views:    0,
-		Likes:    0,
-		Shares:   0,
-		Comments: 0,
+		Views:     0,
+		Likes:     0,
+		Shares:    0,
+		Comments:  0,
+		Followers: 0,
 	}
 }
 
@@ -100,30 +109,24 @@ func (n *Node) BeforeUpdate() {
 // Update representa una actualización de un nodo.
 // Las actualizaciones son usadas para mantener informados a los seguidores sobre el progreso de la causa.
 type Update struct {
-	// ID es el identificador único de la actualización
-	ID string `json:"id" firestore:"id"`
-	// Title es el título de la actualización
-	Title string `json:"title" firestore:"title"`
-	// Description es el contenido detallado de la actualización
-	Description string `json:"description" firestore:"description"`
-	// Media es una lista de recursos multimedia asociados a la actualización
-	Media []string `json:"media" firestore:"media"`
-	// CreatedAt es la fecha de creación de la actualización
-	CreatedAt time.Time `json:"createdAt" firestore:"createdAt"`
+	ID          string    `json:"id" firestore:"id"`
+	Title       string    `json:"title" firestore:"title"`
+	Description string    `json:"description" firestore:"description"`
+	Media       []string  `json:"media" firestore:"media"`
+	CreatedAt   time.Time `json:"createdAt" firestore:"createdAt"`
 }
 
 // ApprovalConfig define la configuración de aprobación para productos en un nodo.
 type ApprovalConfig struct {
-	// RequiresApproval indica si los productos requieren aprobación manual
 	RequiresApproval bool `json:"requiresApproval" firestore:"requiresApproval"`
-	// AutoApprove indica si los productos se aprueban automáticamente
-	AutoApprove bool `json:"autoApprove" firestore:"autoApprove"`
+	AutoApprove      bool `json:"autoApprove" firestore:"autoApprove"`
 }
 
 // InteractionMetrics representa las métricas de interacción de un nodo.
 type InteractionMetrics struct {
-	Views    int `json:"views" firestore:"views"`
-	Likes    int `json:"likes" firestore:"likes"`
-	Shares   int `json:"shares" firestore:"shares"`
-	Comments int `json:"comments" firestore:"comments"`
+	Views     int `json:"views" firestore:"views"`
+	Likes     int `json:"likes" firestore:"likes"`
+	Shares    int `json:"shares" firestore:"shares"`
+	Comments  int `json:"comments" firestore:"comments"`
+	Followers int `json:"followers" firestore:"followers"`
 }

@@ -6,8 +6,8 @@ import (
     "time"
 
     "github.com/GoogleCloudPlatform/functions-framework-go/functions"
-    "github.com/kha0sys/nodo.social/domain/dto"
-    "github.com/kha0sys/nodo.social/services"
+    "github.com/kha0sys/nodo.social/functions/domain/dto"
+    "github.com/kha0sys/nodo.social/functions/services"
 )
 
 // NodeFunctions maneja las Cloud Functions relacionadas con nodos
@@ -90,3 +90,4 @@ func (f *NodeFunctions) RegisterFunctions() {
     functions.HTTP("GetNodeFeed", f.GetNodeFeed)
     functions.HTTP("FollowNode", f.FollowNode)
 }
+

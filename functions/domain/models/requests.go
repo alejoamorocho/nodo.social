@@ -1,5 +1,10 @@
 package models
 
+import (
+	"time"
+	"github.com/kha0sys/nodo.social/functions/domain/models/contact"
+)
+
 // NodeData representa los datos para crear/actualizar un nodo
 type NodeData struct {
     Type        NodeType   `json:"type"`
@@ -8,8 +13,8 @@ type NodeData struct {
     Media       []MediaURL `json:"media"`
 }
 
-// FeedFilters representa los filtros para el feed de nodos
-type FeedFilters struct {
+// FeedRequest representa los parámetros de la request para obtener el feed de nodos
+type FeedRequest struct {
     Type      NodeType `json:"type"`      // Tipo de nodo a filtrar
     Category  string   `json:"category"`  // Categoría específica dentro del tipo
     UserID    string   `json:"userId"`    // Filtrar por usuario específico
@@ -22,18 +27,20 @@ type FeedFilters struct {
 
 // ProductData representa los datos para crear un producto
 type ProductData struct {
-    Name        string     `json:"name"`
-    Description string     `json:"description"`
-    Price       float64    `json:"price"`
-    Images      []MediaURL `json:"images"`
-    Contact     ContactInfo `json:"contact"`
-    Percentage  int        `json:"percentage"`
-    StoreID     string     `json:"storeId"`
+    Name        string            `json:"name"`
+    Description string            `json:"description"`
+    Price       float64           `json:"price"`
+    Images      []MediaURL        `json:"images"`
+    Contact     contact.ContactInfo `json:"contact"`
+    Percentage  int               `json:"percentage"`
+    StoreID     string            `json:"storeId"`
 }
 
 // UserActivityFilters representa los filtros para la actividad del usuario
 type UserActivityFilters struct {
-    LastTimestamp int64  `json:"lastTimestamp"`
-    Limit         int    `json:"limit"`
-    Type          string `json:"type"` // "nodes", "products", "follows"
+    From          time.Time `json:"from" firestore:"from"`
+    To            time.Time `json:"to" firestore:"to"`
+    LastTimestamp int64     `json:"lastTimestamp" firestore:"lastTimestamp"`
+    Limit         int       `json:"limit" firestore:"limit"`
+    Type          string    `json:"type" firestore:"type"` // "nodes", "products", "follows"
 }

@@ -4,9 +4,8 @@ import (
     "encoding/json"
     "net/http"
     "github.com/gorilla/mux"
-    "github.com/kha0sys/nodo.social/domain/models"
-    "github.com/kha0sys/nodo.social/domain/dto"
-    "github.com/kha0sys/nodo.social/services"
+    "github.com/kha0sys/nodo.social/functions/domain/dto"
+    "github.com/kha0sys/nodo.social/functions/services"
 )
 
 // StoreHandler maneja las peticiones HTTP relacionadas con tiendas
@@ -37,8 +36,9 @@ func (h *StoreHandler) CreateStore(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    store, err := h.storeService.CreateStore(r.Context(), storeDTO)
-    if err != nil {
+    // Convertir DTO a modelo
+    store := storeDTO.ToModel()
+    if err := h.storeService.CreateStore(r.Context(), store); err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
@@ -56,25 +56,28 @@ func (h *StoreHandler) GetStore(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    json.NewEncoder(w).Encode(store)
+    // Convertir modelo a DTO
+    json.NewEncoder(w).Encode(dto.FromStoreModel(store))
 }
 
 // UpdateStore maneja la actualización de una tienda
 func (h *StoreHandler) UpdateStore(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
-    var store models.Store
-    if err := json.NewDecoder(r.Body).Decode(&store); err != nil {
+    var storeDTO dto.StoreDTO
+    if err := json.NewDecoder(r.Body).Decode(&storeDTO); err != nil {
         http.Error(w, err.Error(), http.StatusBadRequest)
         return
     }
 
-    store.ID = vars["id"]
-    if err := h.storeService.UpdateStore(r.Context(), &store); err != nil {
+    storeDTO.ID = vars["id"]
+    // Convertir DTO a modelo
+    store := storeDTO.ToModel()
+    if err := h.storeService.UpdateStore(r.Context(), store); err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
 
-    json.NewEncoder(w).Encode(store)
+    json.NewEncoder(w).Encode(dto.FromStoreModel(store))
 }
 
 // DeleteStore maneja la eliminación de una tienda

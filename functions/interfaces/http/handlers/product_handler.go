@@ -4,8 +4,8 @@ import (
     "encoding/json"
     "net/http"
     "github.com/gorilla/mux"
-    "github.com/kha0sys/nodo.social/domain/dto"
-    "github.com/kha0sys/nodo.social/services"
+    "github.com/kha0sys/nodo.social/functions/domain/dto"
+    "github.com/kha0sys/nodo.social/functions/services"
 )
 
 // ProductHandler maneja las peticiones HTTP relacionadas con productos
@@ -38,8 +38,9 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    product, err := h.productService.CreateProduct(r.Context(), &productDTO)
-    if err != nil {
+    // Convertir DTO a modelo
+    product := productDTO.ToModel()
+    if err := h.productService.CreateProduct(r.Context(), product); err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
@@ -70,8 +71,9 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
     }
 
     productDTO.ID = vars["id"]
-    product, err := h.productService.UpdateProduct(r.Context(), &productDTO)
-    if err != nil {
+    // Convertir DTO a modelo
+    product := productDTO.ToModel()
+    if err := h.productService.UpdateProduct(r.Context(), product); err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
@@ -110,11 +112,11 @@ func (h *ProductHandler) GetProductsByNode(w http.ResponseWriter, r *http.Reques
         return
     }
 
-    var productsDTO []dto.ProductDTO
-    for _, product := range products {
-        productDTO := dto.FromProductModel(product)
-        productsDTO = append(productsDTO, *productDTO)
+    // Convertir lista de productos a DTOs
+    productDTOs := make([]*dto.ProductDTO, len(products))
+    for i, product := range products {
+        productDTOs[i] = dto.FromProductModel(product)
     }
 
-    json.NewEncoder(w).Encode(productsDTO)
+    json.NewEncoder(w).Encode(productDTOs)
 }

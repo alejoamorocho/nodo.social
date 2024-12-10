@@ -3,24 +3,25 @@ package handlers
 import (
     "encoding/json"
     "net/http"
-    "strconv"
-
+    "time"
+    
+    "cloud.google.com/go/firestore"
+    firebase "firebase.google.com/go/v4"
     "github.com/gorilla/mux"
-    "github.com/kha0sys/nodo.social/domain/dto"
-    "github.com/kha0sys/nodo.social/domain/models"
-    "github.com/kha0sys/nodo.social/services"
-    "github.com/kha0sys/nodo.social/interfaces/http/utils"
+    "google.golang.org/api/iterator"
+    "github.com/kha0sys/nodo.social/functions/domain/models"
+    "github.com/kha0sys/nodo.social/functions/interfaces/http/middleware"
 )
 
 // NodeHandler maneja las peticiones HTTP relacionadas con nodos
 type NodeHandler struct {
-    nodeService *services.NodeService
+    app *firebase.App
 }
 
 // NewNodeHandler crea una nueva instancia de NodeHandler
-func NewNodeHandler(nodeService *services.NodeService) *NodeHandler {
+func NewNodeHandler(app *firebase.App) *NodeHandler {
     return &NodeHandler{
-        nodeService: nodeService,
+        app: app,
     }
 }
 
@@ -30,112 +31,179 @@ func (h *NodeHandler) RegisterRoutes(r *mux.Router) {
     r.HandleFunc("/nodes/{id}", h.GetNode).Methods("GET")
     r.HandleFunc("/nodes/{id}", h.UpdateNode).Methods("PUT")
     r.HandleFunc("/nodes/{id}", h.DeleteNode).Methods("DELETE")
-    r.HandleFunc("/nodes/{id}/followers", h.AddFollower).Methods("POST")
-    r.HandleFunc("/nodes/{id}/followers/{userID}", h.RemoveFollower).Methods("DELETE")
     r.HandleFunc("/nodes/{id}/followers", h.GetFollowers).Methods("GET")
-    r.HandleFunc("/nodes/{id}/products", h.GetLinkedProducts).Methods("GET")
     r.HandleFunc("/nodes/feed", h.GetFeed).Methods("GET")
 }
 
 // CreateNode maneja la creación de un nuevo nodo
 func (h *NodeHandler) CreateNode(w http.ResponseWriter, r *http.Request) {
-    var nodeDTO dto.NodeDTO
-    if err := json.NewDecoder(r.Body).Decode(&nodeDTO); err != nil {
-        utils.RespondWithError(w, http.StatusBadRequest, utils.ErrInvalidInput, "Invalid request body")
+    var node models.Node
+    if err := json.NewDecoder(r.Body).Decode(&node); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
 
-    createdNode, err := h.nodeService.CreateNode(r.Context(), nodeDTO)
+    // Obtener información del usuario del contexto
+    userID, _, _ := middleware.GetUserFromContext(r.Context())
+    if userID == "" {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+
+    // Añadir metadatos
+    node.UserID = userID
+    node.CreatedAt = time.Now()
+    node.UpdatedAt = time.Now()
+
+    // Crear el documento en Firestore
+    client, err := h.app.Firestore(r.Context())
     if err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+    defer client.Close()
+
+    docRef, _, err := client.Collection("nodes").Add(r.Context(), node)
+    if err != nil {
+        http.Error(w, "Error creating node", http.StatusInternalServerError)
         return
     }
 
-    utils.RespondWithJSON(w, http.StatusCreated, createdNode)
+    node.ID = docRef.ID
+    json.NewEncoder(w).Encode(node)
 }
 
 // GetNode maneja la obtención de un nodo por ID
 func (h *NodeHandler) GetNode(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
-    id := vars["id"]
+    nodeID := vars["id"]
 
-    node, err := h.nodeService.GetNode(r.Context(), id)
+    client, err := h.app.Firestore(r.Context())
     if err != nil {
-        utils.RespondWithError(w, http.StatusNotFound, utils.ErrNotFound, "Node not found")
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+    defer client.Close()
+
+    doc, err := client.Collection("nodes").Doc(nodeID).Get(r.Context())
+    if err != nil {
+        http.Error(w, "Node not found", http.StatusNotFound)
         return
     }
 
-    utils.RespondWithJSON(w, http.StatusOK, node)
+    var node models.Node
+    if err := doc.DataTo(&node); err != nil {
+        http.Error(w, "Error parsing node data", http.StatusInternalServerError)
+        return
+    }
+
+    node.ID = doc.Ref.ID
+    json.NewEncoder(w).Encode(node)
 }
 
 // UpdateNode maneja la actualización de un nodo
 func (h *NodeHandler) UpdateNode(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
-    id := vars["id"]
+    nodeID := vars["id"]
 
-    var nodeDTO dto.NodeDTO
-    if err := json.NewDecoder(r.Body).Decode(&nodeDTO); err != nil {
-        utils.RespondWithError(w, http.StatusBadRequest, utils.ErrInvalidInput, "Invalid request body")
+    var updates models.Node
+    if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
 
-    node := nodeDTO.ToModel()
-    node.ID = id
-
-    if err := h.nodeService.UpdateNode(r.Context(), node); err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
+    // Obtener información del usuario del contexto
+    userID, _, userRole := middleware.GetUserFromContext(r.Context())
+    if userID == "" {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
         return
     }
 
-    utils.RespondWithJSON(w, http.StatusOK, node)
+    client, err := h.app.Firestore(r.Context())
+    if err != nil {
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+    defer client.Close()
+
+    // Verificar propiedad del nodo
+    doc, err := client.Collection("nodes").Doc(nodeID).Get(r.Context())
+    if err != nil {
+        http.Error(w, "Node not found", http.StatusNotFound)
+        return
+    }
+
+    var existingNode models.Node
+    if err := doc.DataTo(&existingNode); err != nil {
+        http.Error(w, "Error parsing node data", http.StatusInternalServerError)
+        return
+    }
+
+    // Solo el creador o un admin pueden actualizar el nodo
+    if existingNode.UserID != userID && userRole != "admin" {
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return
+    }
+
+    updates.UpdatedAt = time.Now()
+    updates.UserID = existingNode.UserID // No permitir cambiar el creador
+    updates.CreatedAt = existingNode.CreatedAt // No permitir cambiar la fecha de creación
+
+    _, err = client.Collection("nodes").Doc(nodeID).Set(r.Context(), updates, firestore.MergeAll)
+    if err != nil {
+        http.Error(w, "Error updating node", http.StatusInternalServerError)
+        return
+    }
+
+    updates.ID = nodeID
+    json.NewEncoder(w).Encode(updates)
 }
 
 // DeleteNode maneja la eliminación de un nodo
 func (h *NodeHandler) DeleteNode(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
-    id := vars["id"]
-
-    if err := h.nodeService.DeleteNode(r.Context(), id); err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
-        return
-    }
-
-    utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Node deleted successfully"})
-}
-
-// AddFollower maneja la adición de un seguidor a un nodo
-func (h *NodeHandler) AddFollower(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
     nodeID := vars["id"]
-    var followerData struct {
-        UserID string `json:"userID"`
-    }
 
-    if err := json.NewDecoder(r.Body).Decode(&followerData); err != nil {
-        utils.RespondWithError(w, http.StatusBadRequest, utils.ErrInvalidInput, "Invalid request body")
+    // Obtener información del usuario del contexto
+    userID, _, userRole := middleware.GetUserFromContext(r.Context())
+    if userID == "" {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
         return
     }
 
-    if err := h.nodeService.AddFollower(r.Context(), nodeID, followerData.UserID); err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
+    client, err := h.app.Firestore(r.Context())
+    if err != nil {
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+    defer client.Close()
+
+    // Verificar propiedad del nodo
+    doc, err := client.Collection("nodes").Doc(nodeID).Get(r.Context())
+    if err != nil {
+        http.Error(w, "Node not found", http.StatusNotFound)
         return
     }
 
-    utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Follower added successfully"})
-}
-
-// RemoveFollower maneja la eliminación de un seguidor de un nodo
-func (h *NodeHandler) RemoveFollower(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    nodeID := vars["id"]
-    userID := vars["userID"]
-
-    if err := h.nodeService.RemoveFollower(r.Context(), nodeID, userID); err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
+    var node models.Node
+    if err := doc.DataTo(&node); err != nil {
+        http.Error(w, "Error parsing node data", http.StatusInternalServerError)
         return
     }
 
-    utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Follower removed successfully"})
+    // Solo el creador o un admin pueden eliminar el nodo
+    if node.UserID != userID && userRole != "admin" {
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return
+    }
+
+    _, err = client.Collection("nodes").Doc(nodeID).Delete(r.Context())
+    if err != nil {
+        http.Error(w, "Error deleting node", http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusNoContent)
 }
 
 // GetFollowers maneja la obtención de seguidores de un nodo
@@ -143,51 +211,61 @@ func (h *NodeHandler) GetFollowers(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
     nodeID := vars["id"]
 
-    followers, err := h.nodeService.GetFollowers(r.Context(), nodeID)
+    client, err := h.app.Firestore(r.Context())
     if err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
         return
     }
+    defer client.Close()
 
-    utils.RespondWithJSON(w, http.StatusOK, followers)
-}
-
-// GetLinkedProducts maneja la obtención de productos vinculados a un nodo
-func (h *NodeHandler) GetLinkedProducts(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    nodeID := vars["id"]
-
-    products, err := h.nodeService.GetLinkedProducts(r.Context(), nodeID)
-    if err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
-        return
+    followers := make([]string, 0)
+    iter := client.Collection("nodes").Doc(nodeID).Collection("followers").Documents(r.Context())
+    for {
+        doc, err := iter.Next()
+        if err == iterator.Done {
+            break
+        }
+        if err != nil {
+            http.Error(w, "Error getting followers", http.StatusInternalServerError)
+            return
+        }
+        followers = append(followers, doc.Ref.ID)
     }
 
-    utils.RespondWithJSON(w, http.StatusOK, products)
+    json.NewEncoder(w).Encode(followers)
 }
 
 // GetFeed maneja la obtención del feed de nodos
 func (h *NodeHandler) GetFeed(w http.ResponseWriter, r *http.Request) {
-    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-    limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-
-    if page < 1 {
-        page = 1
-    }
-    if limit < 1 || limit > 100 {
-        limit = 10
-    }
-
-    filters := models.FeedFilters{
-        Page:  page,
-        Limit: limit,
-    }
-
-    nodes, err := h.nodeService.GetFeed(r.Context(), filters)
+    limit := 10 // Número de nodos por página
+    
+    client, err := h.app.Firestore(r.Context())
     if err != nil {
-        utils.RespondWithError(w, http.StatusInternalServerError, utils.ErrInternalServer, err.Error())
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+    defer client.Close()
+
+    // Obtener los nodos más recientes
+    query := client.Collection("nodes").
+        OrderBy("CreatedAt", firestore.Desc).
+        Limit(limit)
+
+    docs, err := query.Documents(r.Context()).GetAll()
+    if err != nil {
+        http.Error(w, "Error getting feed", http.StatusInternalServerError)
         return
     }
 
-    utils.RespondWithJSON(w, http.StatusOK, nodes)
+    nodes := make([]models.Node, 0, len(docs))
+    for _, doc := range docs {
+        var node models.Node
+        if err := doc.DataTo(&node); err != nil {
+            continue // Saltar documentos con error
+        }
+        node.ID = doc.Ref.ID
+        nodes = append(nodes, node)
+    }
+
+    json.NewEncoder(w).Encode(nodes)
 }

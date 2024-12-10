@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"cloud.google.com/go/functions/metadata"
-	"github.com/kha0sys/nodo.social/internal/firebase"
+	"github.com/kha0sys/nodo.social/functions/internal/firebase"
 )
 
 type AchievementTriggers struct {
@@ -52,3 +52,4 @@ type UserRanking struct {
 	Position int    `json:"position" firestore:"position"`
 	Level    int    `json:"level" firestore:"level"`
 }
+

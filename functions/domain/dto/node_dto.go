@@ -2,7 +2,7 @@ package dto
 
 import (
     "time"
-    "github.com/kha0sys/nodo.social/domain/models"
+    "github.com/kha0sys/nodo.social/functions/domain/models"
 )
 
 // NodeDTO representa los datos de un nodo para transferencia
@@ -47,3 +47,4 @@ func FromNodeModel(node *models.Node) *NodeDTO {
         UpdatedAt:      node.UpdatedAt,
     }
 }
+
