@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dracula Theme Colors */
+  --background: #282a36;
+  --current-line: #44475a;
+  --foreground: #f8f8f2;
+  --comment: #6272a4;
+  --cyan: #8be9fd;
+  --green: #50fa7b;
+  --orange: #ffb86c;
+  --pink: #ff79c6;
+  --purple: #bd93f9;
+  --red: #ff5555;
+  --yellow: #f1fa8c;
+
+  /* Semantic Colors */
+  --primary: var(--purple);
+  --secondary: var(--cyan);
+  --success: var(--green);
+  --warning: var(--orange);
+  --error: var(--red);
+  --info: var(--comment);
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Base Styles */
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+
+  code {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Component Styles */
+@layer components {
+  /* Button Variants */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 ease-in-out
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-primary hover:bg-primary/90 text-background;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary hover:bg-secondary/90 text-background;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-current-line text-foreground;
+  }
+
+  .btn-danger {
+    @apply bg-error hover:bg-error/90 text-background;
+  }
+
+  /* Card Styles */
+  .card {
+    @apply bg-current-line rounded-xl p-6 shadow-lg
+           border border-comment/10 backdrop-blur-sm;
+  }
+
+  .card-hover {
+    @apply hover:border-primary/50 transition-all duration-200;
+  }
+
+  /* Input Styles */
+  .input {
+    @apply px-4 py-2 rounded-lg bg-current-line border border-comment/20
+           focus:outline-none focus:ring-2 focus:ring-primary/50
+           placeholder:text-comment;
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply px-2 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-primary {
+    @apply bg-primary/20 text-primary;
+  }
+
+  .badge-secondary {
+    @apply bg-secondary/20 text-secondary;
+  }
+
+  /* Link Styles */
+  .link {
+    @apply text-primary hover:text-primary/80 underline-offset-4 hover:underline
+           transition-all duration-200;
+  }
+}
+
+/* Utility Classes */
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
+  }
+
+  .glass {
+    @apply bg-current-line/50 backdrop-blur-md;
+  }
+}

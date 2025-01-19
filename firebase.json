@@ -15,7 +15,7 @@
   },
   "functions": {
     "source": "functions",
-    "runtime": "go120"
+    "runtime": "go113"
   },
   "firestore": {
     "rules": "firestore.rules",

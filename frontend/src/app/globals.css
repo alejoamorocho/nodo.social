@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dracula Theme Colors */
+  --background: #282a36;
+  --current-line: #44475a;
+  --foreground: #f8f8f2;
+  --comment: #6272a4;
+  --cyan: #8be9fd;
+  --green: #50fa7b;
+  --orange: #ffb86c;
+  --pink: #ff79c6;
+  --purple: #bd93f9;
+  --red: #ff5555;
+  --yellow: #f1fa8c;
+
+  /* Semantic Colors */
+  --primary: var(--purple);
+  --secondary: var(--pink);
+  --success: var(--green);
+  --warning: var(--orange);
+  --error: var(--red);
+  --info: var(--cyan);
+}
+
+@layer components {
+  .input {
+    @apply bg-current-line text-foreground border border-current-line rounded-lg;
+    @apply focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:ring-purple focus:border-purple;
+    @apply transition-colors;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg;
+    @apply transition-colors focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:ring-purple;
+    @apply disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply bg-purple text-background hover:bg-opacity-90;
+  }
+
+  .btn-secondary {
+    @apply bg-pink text-background hover:bg-opacity-90;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-foreground hover:bg-current-line;
+  }
+
+  .btn-danger {
+    @apply bg-red text-background hover:bg-opacity-90;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground min-h-screen;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--current-line);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--comment);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--purple);
+}

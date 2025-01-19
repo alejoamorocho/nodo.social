@@ -1,0 +1,6 @@
+.progressFill {
+  height: 100%;
+  background-color: var(--primary);
+  border-radius: 9999px;
+  transition: width 500ms ease-out;
+}

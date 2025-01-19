@@ -56,12 +56,16 @@ nodo.social/
 ├── frontend/              # Frontend application
 ├── functions/             # Backend services (Go)
 │   ├── domain/           # Business rules and entities
-│   │   ├── models/       # Domain models
+│   │   ├── models/       # Domain models (User, Node, Feed)
+│   │   ├── dto/         # Data Transfer Objects
 │   │   └── repositories/ # Repository interfaces
 │   ├── infrastructure/   # External services implementation
 │   │   └── firebase/    # Firebase implementations
 │   ├── interfaces/       # Interface adapters
+│   │   ├── http/        # HTTP handlers and routes
 │   │   └── cloud/       # Cloud Functions
+│   ├── services/        # Application business logic
+│   │   └── user/        # User-related services
 │   └── go.mod           # Go module definition
 ├── package.json          # Node.js project configuration
 ├── storage.rules         # Storage security rules
@@ -79,15 +83,22 @@ The project follows a Clean Architecture pattern with distinct layers:
    - Defines repository interfaces
    - Independent of external frameworks
    - Houses business rules and validation
+   - DTOs for data transformation and validation
+   - Models: User, Node, Feed, etc.
 
 2. **Services Layer** (`functions/services/`)
    - Implements core business logic
    - Orchestrates domain objects
    - Handles use case implementation
    - Maintains business rule integrity
+   - User service for authentication and profile management
+   - Node service for content management
 
 3. **Interface Layer** (`functions/interfaces/`)
    - HTTP Handlers: REST API endpoints
+   - Base handler with common functionality
+   - User handler for profile operations
+   - Node handler for content operations
    - Cloud Functions: Firebase function handlers
    - Adapts external requests to internal services
    - Handles request/response transformations
@@ -141,21 +152,30 @@ git clone https://github.com/kha0sys/nodo.social.git
 cd nodo.social
 ```
 
-1. Install backend dependencies:
+2. Install backend dependencies:
 
 ```bash
 cd functions
 go mod tidy
+go mod vendor  # Para asegurar consistencia en las dependencias
 ```
 
-1. Install frontend dependencies:
+3. Install frontend dependencies:
 
 ```bash
 cd frontend
 npm install
 ```
 
-1. Set up environment variables:
+4. Configure Firebase:
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase init
+```
+
+5. Set up environment variables:
 
 ```bash
 cp .env.example .env
@@ -171,11 +191,24 @@ cd functions
 go run cmd/main.go
 ```
 
-1. Start the frontend:
+2. Start Firebase emulators (opcional):
+
+```bash
+firebase emulators:start
+```
+
+3. Start the frontend:
 
 ```bash
 cd frontend
 npm run dev
+```
+
+4. Run tests:
+
+```bash
+cd functions
+go test ./...
 ```
 
 ## Development Guidelines
