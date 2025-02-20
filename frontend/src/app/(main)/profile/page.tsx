@@ -1,32 +1,31 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
-import { ProgressBar } from '@/components/fundraising/ProgressBar'
-import { User, Mail, MapPin, Edit, Settings, Calendar, Heart, Target, Users, Link as LinkIcon, Twitter, Instagram, Globe } from 'lucide-react'
+import { User, Mail, MapPin, Edit, Settings, Calendar, Heart, Target, Users, Twitter, Instagram, Globe } from 'lucide-react'
 import Link from 'next/link'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '../../../../firebase'
+import Image from 'next/image'
 
-// Datos de ejemplo
-const user = {
-  name: 'María González',
-  username: '@mariagonzalez',
-  email: 'maria@ejemplo.com',
-  location: 'Ciudad de México',
-  bio: 'Activista social y ambiental. Trabajando por un mundo mejor a través de proyectos de impacto.',
-  joinDate: 'Enero 2023',
-  avatar: '/avatar.jpg',
-  coverImage: '/cover.jpg',
+interface User {
+  name: string
+  email: string
+  avatar: string
+  coverImage: string
+  bio: string
+  location: string
+  joinDate: string
   links: {
-    website: 'https://maria.com',
-    twitter: '@mariagonzalez',
-    instagram: '@maria.gonzalez'
-  },
+    website: string
+    twitter: string
+    instagram: string
+  }
   stats: {
-    nodesCreated: 3,
-    nodesSupported: 12,
-    totalImpact: 25000,
-    followers: 156,
-    following: 89
+    nodesCreated: number
+    nodesSupported: number
+    totalImpact: number
+    followers: number
   }
 }
 
@@ -73,17 +72,54 @@ const activities = [
 ]
 
 export default function ProfilePage() {
+  const [user, setUser] = useState<User | null>(null)
   const [activeTab, setActiveTab] = useState<'nodes' | 'activity' | 'impact'>('nodes')
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser({
+          name: currentUser.displayName || '',
+          email: currentUser.email || '',
+          avatar: currentUser.photoURL || '',
+          coverImage: '', // Agrega la propiedad coverImage si es necesario
+          bio: '', // Agrega la propiedad bio si es necesario
+          location: '', // Agrega la propiedad location si es necesario
+          joinDate: '', // Agrega la propiedad joinDate si es necesario
+          links: {
+            website: '',
+            twitter: '',
+            instagram: ''
+          },
+          stats: {
+            nodesCreated: 0,
+            nodesSupported: 0,
+            totalImpact: 0,
+            followers: 0
+          }
+        })
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  if (!user) {
+    return <div>Loading...</div>
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
       {/* Cover Image */}
       <div className="h-64 bg-gradient-to-r from-primary to-secondary rounded-lg overflow-hidden">
         {user.coverImage && (
-          <img
+          <Image
             src={user.coverImage}
             alt="Cover"
-            className="w-full h-full object-cover"
+            layout="fill"
+            objectFit="cover"
           />
         )}
       </div>
@@ -95,10 +131,12 @@ export default function ProfilePage() {
           <div className="flex items-end">
             <div className="w-32 h-32 rounded-full border-4 border-background overflow-hidden bg-current-line">
               {user.avatar ? (
-                <img
+                <Image
                   src={user.avatar}
                   alt={user.name}
-                  className="w-full h-full object-cover"
+                  width={128}
+                  height={128}
+                  className="object-cover"
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-purple/20 to-cyan/20 flex items-center justify-center">
@@ -108,7 +146,7 @@ export default function ProfilePage() {
             </div>
             <div className="ml-4 mb-4">
               <h1 className="text-3xl font-bold">{user.name}</h1>
-              <p className="text-comment">{user.username}</p>
+              <p className="text-comment">{user.email}</p>
             </div>
           </div>
 
@@ -260,13 +298,6 @@ export default function ProfilePage() {
                       </p>
                     </div>
                   </div>
-
-                  <ProgressBar
-                    current={node.current}
-                    goal={node.goal}
-                    daysLeft={node.daysLeft}
-                    backers={node.backers}
-                  />
                 </article>
               </Link>
             ))}
