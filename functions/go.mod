@@ -1,8 +1,8 @@
 module github.com/kha0sys/nodo.social/functions
 
-go 1.13
+go 1.21.1
 
-toolchain go1.23.3
+toolchain go1.23.5
 
 require (
 	cloud.google.com/go/firestore v1.17.0
