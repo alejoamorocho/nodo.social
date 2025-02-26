@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Menu, Bell, User, Search, LogOut } from 'lucide-react'
 import { useState, useCallback, useEffect } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { auth } from '../../../firebase'
+import { auth } from '../../firebase'
 import Image from 'next/image'
 
 interface User {

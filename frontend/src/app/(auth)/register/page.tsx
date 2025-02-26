@@ -4,10 +4,11 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useState } from 'react';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '../../../../firebase';
+import { auth, db } from '../../../firebase';
 import { useRouter } from 'next/navigation';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function RegisterPage() {
   const [credentials, setCredentials] = useState({
@@ -84,21 +85,41 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      let avatarURL = '';
       if (avatar) {
         const storage = getStorage();
         const storageRef = ref(storage, `avatars/${user.uid}`);
         await uploadBytes(storageRef, avatar);
-        const avatarURL = await getDownloadURL(storageRef);
-
-        await updateProfile(user, {
-          displayName: name,
-          photoURL: avatarURL,
-        });
-      } else {
-        await updateProfile(user, {
-          displayName: name,
-        });
+        avatarURL = await getDownloadURL(storageRef);
       }
+
+      await updateProfile(user, {
+        displayName: name,
+        photoURL: avatarURL,
+      });
+
+      // Guardar datos del usuario en Firestore
+      const joinDate = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+      await setDoc(doc(db, 'users', user.uid), {
+        name: name,
+        email: email,
+        avatar: avatarURL,
+        coverImage: '',
+        bio: '',
+        location: '',
+        joinDate: joinDate,
+        links: {
+          website: '',
+          twitter: '',
+          instagram: ''
+        },
+        stats: {
+          nodesCreated: 0,
+          nodesSupported: 0,
+          totalImpact: 0,
+          followers: 0
+        }
+      });
 
       push('/');
     } catch (error: unknown) {

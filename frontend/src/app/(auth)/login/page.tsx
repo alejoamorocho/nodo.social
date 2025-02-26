@@ -3,23 +3,25 @@
 import React, { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { FirebaseError } from "firebase/app"; // Importa FirebaseError desde firebase/app
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { auth, googleProvider } from "../../../../firebase";
+import { auth, googleProvider, db } from "../../../firebase";
 import { useRouter } from "next/navigation";
 import { FaEye, FaEyeSlash, FaTimes } from "react-icons/fa";
 import Image from "next/image";
-import googleLogo from "../../../../public/google.png"; 
+import googleLogo from "../../../../public/google.png";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export default function LoginPage() {
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [modalError, setModalError] = useState("");
-  const [modalSuccess, setModalSuccess] = useState(""); 
+  const [modalSuccess, setModalSuccess] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -49,12 +51,10 @@ export default function LoginPage() {
     // Validar campos vacíos
     if (!email) {
       setEmailError("Por favor, ingresa tu email.");
+      return;
     }
     if (!password) {
       setPasswordError("Por favor, ingresa tu contraseña.");
-    }
-
-    if (!email || !password) {
       return;
     }
 
@@ -73,10 +73,27 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       push("/");
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setEmailError(error.message || "Hubo un problema al iniciar sesión.");
-        console.error(error);
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case "auth/wrong-password":
+            setPasswordError("Contraseña incorrecta.");
+            break;
+          case "auth/user-not-found":
+            setEmailError("No existe una cuenta con este correo electrónico.");
+            break;
+          case "auth/invalid-email":
+            setEmailError("El correo electrónico no tiene un formato válido.");
+            break;
+          case "auth/too-many-requests":
+            setEmailError("Demasiados intentos fallidos. Inténtalo de nuevo más tarde.");
+            break;
+          default:
+            setEmailError("Hubo un problema al iniciar sesión.");
+        }
+      } else {
+        console.error("Error inesperado:", error);
+        setEmailError("Hubo un problema al iniciar sesión.");
       }
     }
   };
@@ -85,12 +102,35 @@ export default function LoginPage() {
     setEmailError("");
     setPasswordError("");
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Verificar si el usuario ya existe en Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        // Guardar datos del usuario en Firestore si no existe
+        await setDoc(doc(db, "users", user.uid), {
+          name: user.displayName,
+          email: user.email,
+          avatar: user.photoURL,
+          coverImage: "",
+          bio: "",
+          location: "",
+          links: {
+            website: "",
+            twitter: "",
+            instagram: "",
+          },
+        });
+      }
+
       push("/");
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setEmailError(error.message || "Error al iniciar sesión con Google.");
-        console.error(error);
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        setEmailError("Error al iniciar sesión con Google.");
+      } else {
+        console.error("Error inesperado:", error);
+        setEmailError("Hubo un problema al iniciar sesión con Google.");
       }
     }
   };
@@ -108,10 +148,21 @@ export default function LoginPage() {
       await sendPasswordResetEmail(auth, credentials.email);
       setModalSuccess("Se envió un correo de recuperación.");
       setIsModalOpen(false);
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setModalError(error.message || "Error al enviar el correo de recuperación.");
-        console.error(error);
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case "auth/user-not-found":
+            setModalError("No existe una cuenta con este correo electrónico.");
+            break;
+          case "auth/invalid-email":
+            setModalError("El correo electrónico no tiene un formato válido.");
+            break;
+          default:
+            setModalError("Error al enviar el correo de recuperación.");
+        }
+      } else {
+        console.error("Error inesperado:", error);
+        setModalError("Hubo un problema al enviar el correo de recuperación.");
       }
     } finally {
       setLoading(false);
@@ -125,7 +176,9 @@ export default function LoginPage() {
           <h1 className="text-3xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
             Bienvenido a NODO.SOCIAL
           </h1>
-          <h2 className="text-xl md:text-xl lg:text-2xl font-semibold mb-32 mt-24">Conectando personas y emprendedores con causas sociales, ambientales y animales a través de nodos temáticos.</h2>
+          <h2 className="text-xl md:text-xl lg:text-2xl font-semibold mb-32 mt-24">
+            Conectando personas y emprendedores con causas sociales, ambientales y animales a través de nodos temáticos.
+          </h2>
           <p className="text-lg md:text-base lg:text-lg mb-8">Accede a tu cuenta para seguir con tus actividades.</p>
         </div>
       </div>
@@ -136,17 +189,21 @@ export default function LoginPage() {
             <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               Hola!
             </h1>
-            <p className="text-base text-current-line font-normal m-11">¿No tienes cuenta? <a href="/register" className="text-blue-800 hover:underline">Regístrate</a></p>
+            <p className="text-base text-current-line font-normal m-11">
+              ¿No tienes cuenta? <a href="/register" className="text-blue-800 hover:underline">Regístrate</a>
+            </p>
           </div>
 
           <h1 className="text-2xl text-current-line font-bold mb-4 mt-4">Iniciar Sesión</h1>
-          
+
           {emailError && <p className="text-error text-center mb-4">{emailError}</p>}
           {passwordError && <p className="text-error text-center mb-4">{passwordError}</p>}
 
           <form className="space-y-4" onSubmit={handleLogin}>
             <div>
-              <label htmlFor="email" className="block text-base text-current-line font-medium">Email</label>
+              <label htmlFor="email" className="block text-base text-current-line font-medium">
+                Email
+              </label>
               <input
                 type="email"
                 id="email"
@@ -160,7 +217,9 @@ export default function LoginPage() {
               {emailError && <p className="text-red-500 text-sm mt-1">{emailError}</p>}
             </div>
             <div>
-              <label htmlFor="password" className="block text-base text-current-line">Contraseña</label>
+              <label htmlFor="password" className="block text-base text-current-line">
+                Contraseña
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -187,10 +246,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="text-blue-800 text-sm mt-2"
-          >
+          <button onClick={() => setIsModalOpen(true)} className="text-blue-800 text-sm mt-2">
             ¿Olvidaste tu contraseña?
           </button>
 
@@ -224,10 +280,7 @@ export default function LoginPage() {
             <div className="fixed top-0 inset-x-0 flex items-center justify-center transition-transform transform translate-y-0">
               <div className="bg-success text-current-line p-4 rounded-lg shadow-lg flex items-center">
                 <p>{modalSuccess}</p>
-                <button
-                  onClick={() => setModalSuccess("")}
-                  className="ml-4 text-current-line underline"
-                >
+                <button onClick={() => setModalSuccess("")} className="ml-4 text-current-line underline">
                   <FaTimes />
                 </button>
               </div>

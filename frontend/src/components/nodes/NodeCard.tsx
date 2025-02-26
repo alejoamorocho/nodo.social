@@ -1,15 +1,34 @@
 'use client'
 
+import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { MapPin, Tag } from 'lucide-react'
-import type { Node } from '@/domain/models/Node'
+
+interface Product {
+  name: string
+  price: number
+  description: string
+}
+
+interface Node {
+  id: string
+  name: string
+  description: string
+  category: string
+  tags: string[]
+  imageUrl: string
+  createdAt: Date
+  createdBy: string
+  products?: Product[]
+  location?: string
+}
 
 interface NodeCardProps {
   node: Node
 }
 
-export function NodeCard({ node }: NodeCardProps) {
+export const NodeCard: React.FC<NodeCardProps> = ({ node }) => {
   return (
     <Link href={`/nodes/${node.id}`}>
       <div className="group bg-current-line rounded-lg overflow-hidden transition-transform hover:scale-[1.02]">
@@ -17,7 +36,7 @@ export function NodeCard({ node }: NodeCardProps) {
         <div className="relative aspect-video">
           <Image
             src={node.imageUrl}
-            alt={node.name}
+            alt={node.name || 'Imagen del nodo'}
             fill
             className="object-cover"
           />
@@ -32,45 +51,33 @@ export function NodeCard({ node }: NodeCardProps) {
             </h3>
             <div className="flex items-center gap-2 text-comment mt-1">
               <MapPin className="w-4 h-4" />
-              <span>{node.location}</span>
+              <span>{node.location || 'Ubicación no disponible'}</span>
             </div>
           </div>
 
           <p className="text-comment line-clamp-2">{node.description}</p>
+          <p className="text-comment"><strong>Categoría:</strong> {node.category}</p>
+          <p className="text-comment"><strong>Creado por:</strong> {node.createdBy}</p>
+          <p className="text-comment"><strong>Fecha de creación:</strong> {new Date(node.createdAt).toLocaleDateString()}</p>
 
           {/* Products Preview */}
-          {node.products.length > 0 && (
+          {node.products && node.products.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-purple-400">
                 <Tag className="w-4 h-4" />
-                <span>{node.products.length} productos vinculados</span>
+                <span>Productos:</span>
               </div>
-              <div className="flex -space-x-2">
-                {node.products.slice(0, 3).map((product) => (
-                  <div
-                    key={product.id}
-                    className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-background"
-                  >
-                    <Image
-                      src={product.imageUrl}
-                      alt={product.title}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
+              <ul className="list-disc list-inside">
+                {node.products.map((product, index) => (
+                  <li key={index}>{product.name} - ${product.price}</li>
                 ))}
-                {node.products.length > 3 && (
-                  <div className="relative w-8 h-8 rounded-full bg-purple-500 border-2 border-background flex items-center justify-center text-xs">
-                    +{node.products.length - 3}
-                  </div>
-                )}
-              </div>
+              </ul>
             </div>
           )}
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
-            {node.tags.slice(0, 3).map((tag, index) => (
+            {node.tags?.slice(0, 3).map((tag, index) => (
               <span
                 key={index}
                 className="bg-background px-2 py-1 rounded-full text-xs"
@@ -78,7 +85,7 @@ export function NodeCard({ node }: NodeCardProps) {
                 {tag}
               </span>
             ))}
-            {node.tags.length > 3 && (
+            {node.tags && node.tags.length > 3 && (
               <span className="bg-background px-2 py-1 rounded-full text-xs">
                 +{node.tags.length - 3}
               </span>

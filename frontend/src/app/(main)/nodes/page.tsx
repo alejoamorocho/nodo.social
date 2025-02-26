@@ -1,15 +1,65 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
 import { NodeCard } from '@/components/nodes/NodeCard'
-import { categories, mockNodes } from '@/infrastructure/mock/nodeData'
+import { categories } from '@/infrastructure/mock/nodeData'
+import { db } from '../../../firebase'
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore'
 
-const nodes = mockNodes
+interface Product {
+  name: string
+  price: number
+  description: string
+}
+
+interface Node {
+  id: string
+  name: string
+  description: string
+  category: string
+  tags: string[]
+  imageUrl: string
+  createdAt: Date
+  createdBy: string
+  products?: Product[] 
+}
+
+interface User {
+  id: string
+  name: string
+}
 
 export default function NodesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [nodes, setNodes] = useState<Node[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchNodes = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'nodes'))
+        const nodesData = await Promise.all(querySnapshot.docs.map(async (nodeDoc) => {
+          const nodeData = nodeDoc.data() as Node
+          const userDoc = await getDoc(doc(db, 'users', nodeData.createdBy))
+          const userData = userDoc.exists() ? userDoc.data() as User : { name: 'Usuario desconocido' }
+          return { ...nodeData, createdBy: userData.name }
+        }))
+        setNodes(nodesData)
+      } catch (error) {
+        console.error('Error fetching nodes:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchNodes()
+  }, [])
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
 
   return (
     <div className="space-y-8">
@@ -61,7 +111,7 @@ export default function NodesPage() {
             (searchQuery
               ? node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 node.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                node.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+                node.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
               : true)
           )
           .map(node => (
