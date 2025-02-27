@@ -1,28 +1,27 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search } from 'lucide-react'
-import { NodeCard } from '@/components/nodes/NodeCard'
+import { Search, X } from 'lucide-react'
 import { categories } from '@/infrastructure/mock/nodeData'
 import { db } from '../../../firebase'
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore'
-
-interface Product {
-  name: string
-  price: number
-  description: string
-}
+import { NodeCard } from '@/components/nodes/NodeCard'
 
 interface Node {
   id: string
-  name: string
-  description: string
+  title: string
   category: string
-  tags: string[]
+  location: string
+  goal: string
+  duration: string
+  description: string
+  rewards: string
   imageUrl: string
   createdAt: Date
+  followers: string[]
   createdBy: string
-  products?: Product[] 
+  name: string
+  tags: string[]
 }
 
 interface User {
@@ -57,6 +56,12 @@ export default function NodesPage() {
     fetchNodes()
   }, [])
 
+  // Función para limpiar los filtros
+  const clearFilters = () => {
+    setSelectedCategory(null)
+    setSearchQuery('')
+  }
+
   if (loading) {
     return <div>Loading...</div>
   }
@@ -79,12 +84,24 @@ export default function NodesPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar nodos..."
-            className="input pl-10 pr-4 py-2 w-full"
+            className="input pl-10 pr-4 py-2 w-full border border-current-line rounded-lg"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-comment" />
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">
+          {/* Botón para limpiar filtros */}
+          {selectedCategory && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border border-gray-300"
+            >
+              <X className="w-4 h-4" />
+              Quitar filtros
+            </button>
+          )}
+
+          {/* Botones de categoría */}
           {categories.map((category) => (
             <button
               key={category.id}
@@ -93,8 +110,8 @@ export default function NodesPage() {
               )}
               className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
                 selectedCategory === category.id
-                  ? `bg-${category.color} text-background`
-                  : `bg-${category.color}/20 text-${category.color} hover:bg-${category.color}/30`
+                  ? `border-2 border-${category.color} bg-${category.color}/20 text-${category.color}`
+                  : `bg-${category.color}/10 text-${category.color} hover:bg-${category.color}/20`
               }`}
             >
               {category.name}
@@ -108,16 +125,11 @@ export default function NodesPage() {
         {nodes
           .filter(node => 
             (selectedCategory ? node.category === selectedCategory : true) &&
-            (searchQuery
-              ? node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                node.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                node.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-              : true)
+            (searchQuery ? node.title.toLowerCase().includes(searchQuery.toLowerCase()) : true)
           )
           .map(node => (
             <NodeCard key={node.id} node={node} />
-          ))
-        }
+          ))}
       </div>
     </div>
   )

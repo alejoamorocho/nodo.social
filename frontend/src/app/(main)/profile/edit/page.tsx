@@ -245,7 +245,7 @@ export default function EditProfilePage() {
           />
           <button
             type="button"
-                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 mt-5"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 mt-5"
             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
           >
             {showCurrentPassword ? <FaEyeSlash /> : <FaEye />}
@@ -262,7 +262,7 @@ export default function EditProfilePage() {
           />
           <button
             type="button"
-                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 mt-5"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 mt-5"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -279,10 +279,10 @@ export default function EditProfilePage() {
           />
           <button
             type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 mt-5"
+            className="absriitgray-500 mt0 riitgray-500 mtlex itgray-500 mt text-gray-500 mt-5"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
           >
-                 {showPassword ? <FaEyeSlash /> : <FaEye />}
+            {showPassword ? <FaEyeSlash /> : <FaEye />}
           </button>
         </div>
         {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
@@ -304,7 +304,10 @@ export default function EditProfilePage() {
           <div className="bg-white p-6 rounded-lg shadow-lg">
             <h3 className="text-xl font-bold mb-4 text-black">Éxito</h3>
             <p className="text-black mb-4">Contraseña actualizada correctamente</p>
-            <Button onClick={() => setShowSuccessPopup(false)} variant="secondary">Cerrar</Button>
+            <Button onClick={() => {
+              setShowSuccessPopup(false);
+              router.push('/profile');
+            }} variant="secondary">Cerrar</Button>
           </div>
         </div>
       )}
