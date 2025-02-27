@@ -1,89 +1,148 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
-import { ProgressBar } from '@/components/fundraising/ProgressBar'
-import { User, Mail, MapPin, Edit, Settings, Calendar, Heart, Target, Users, Link as LinkIcon, Twitter, Instagram, Globe } from 'lucide-react'
+import { User, Mail, MapPin, Edit, Settings, Calendar, Heart, Target, Users, Twitter, Instagram, Globe } from 'lucide-react'
 import Link from 'next/link'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth, db } from '../../../firebase'
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
+import Image from 'next/image'
 
-// Datos de ejemplo
-const user = {
-  name: 'María González',
-  username: '@mariagonzalez',
-  email: 'maria@ejemplo.com',
-  location: 'Ciudad de México',
-  bio: 'Activista social y ambiental. Trabajando por un mundo mejor a través de proyectos de impacto.',
-  joinDate: 'Enero 2023',
-  avatar: '/avatar.jpg',
-  coverImage: '/cover.jpg',
+interface User {
+  name: string
+  email: string
+  avatar: string
+  coverImage: string
+  bio: string
+  location: string
+  joinDate: string
   links: {
-    website: 'https://maria.com',
-    twitter: '@mariagonzalez',
-    instagram: '@maria.gonzalez'
-  },
+    website: string
+    twitter: string
+    instagram: string
+  }
   stats: {
-    nodesCreated: 3,
-    nodesSupported: 12,
-    totalImpact: 25000,
-    followers: 156,
-    following: 89
+    nodesCreated: number
+    nodesSupported: number
+    totalImpact: number
+    followers: number
   }
 }
 
-const userNodes = [
-  {
-    id: 1,
-    type: 'created',
-    title: 'Refugio Animal Sustentable',
-    description: 'Un espacio seguro para animales rescatados',
-    category: 'animal',
-    current: 15000,
-    goal: 50000,
-    daysLeft: 45,
-    backers: 128
-  },
-  {
-    id: 2,
-    type: 'supported',
-    title: 'Huertos Urbanos Comunitarios',
-    description: 'Transformando espacios urbanos en jardines productivos',
-    category: 'ambiental',
-    current: 8000,
-    goal: 20000,
-    daysLeft: 30,
-    backers: 89
-  }
-]
+interface Node {
+  id: string
+  title: string
+  description: string
+  category: string
+  current: number
+  goal: number
+  daysLeft: number
+  backers: number
+  imageUrl: string
+  location: string
+}
 
-const activities = [
-  {
-    id: 1,
-    type: 'donation',
-    node: 'Huertos Urbanos Comunitarios',
-    amount: 500,
-    date: '2 días atrás'
-  },
-  {
-    id: 2,
-    type: 'update',
-    node: 'Refugio Animal Sustentable',
-    content: 'Publicó una actualización: ¡Alcanzamos el 30%!',
-    date: '5 días atrás'
-  }
-]
+interface Activity {
+  id: string
+  type: 'donation' | 'completion'
+  amount?: number
+  node?: string
+  content?: string
+  date: string
+}
 
 export default function ProfilePage() {
+  const [user, setUser] = useState<User | null>(null)
   const [activeTab, setActiveTab] = useState<'nodes' | 'activity' | 'impact'>('nodes')
+  const [userNodes, setUserNodes] = useState<Node[]>([])
+  const [activities, setActivities] = useState<Activity[]>([])
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          // Obtener los datos del usuario desde Firestore
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid))
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as User
+            console.log('Datos del usuario cargados:', userData)
+            setUser({
+              name: userData.name || '',
+              email: userData.email || '',
+              avatar: userData.avatar || '',
+              coverImage: userData.coverImage || '',
+              bio: userData.bio || '',
+              location: userData.location || '',
+              joinDate: userData.joinDate || '',
+              links: userData.links || {
+                website: '',
+                twitter: '',
+                instagram: ''
+              },
+              stats: userData.stats || {
+                nodesCreated: 0,
+                nodesSupported: 0,
+                totalImpact: 0,
+                followers: 0
+              }
+            })
+          } else {
+            console.log('No se encontraron datos del usuario')
+          }
+
+          // Obtener los nodos creados por el usuario
+          const nodesQuery = query(collection(db, 'nodes'), where('createdBy', '==', currentUser.uid))
+          const querySnapshot = await getDocs(nodesQuery)
+          const nodes = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Node[]
+          setUserNodes(nodes)
+
+          // Actualizar el contador de nodos creados
+          setUser(prevUser => prevUser ? {
+            ...prevUser,
+            stats: {
+              ...prevUser.stats,
+              nodesCreated: nodes.length
+            }
+          } : null)
+
+          // Obtener las actividades del usuario
+          const activitiesQuery = query(collection(db, 'activities'), where('userId', '==', currentUser.uid))
+          const activitiesSnapshot = await getDocs(activitiesQuery)
+          const activities = activitiesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Activity[]
+          setActivities(activities)
+        } catch (error) {
+          console.error('Error al obtener los datos del usuario:', error)
+        }
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  if (!user) {
+    return <div>Loading...</div>
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
       {/* Cover Image */}
-      <div className="h-64 bg-gradient-to-r from-primary to-secondary rounded-lg overflow-hidden">
+      <div className="h-64 bg-gradient-to-r from-primary to-secondary rounded-lg overflow-hidden shadow-lg">
         {user.coverImage && (
-          <img
+          <Image
             src={user.coverImage}
             alt="Cover"
-            className="w-full h-full object-cover"
+            layout="fill"
+            objectFit="cover"
+            className="opacity-80"
           />
         )}
       </div>
@@ -93,35 +152,39 @@ export default function ProfilePage() {
         {/* Avatar and Actions */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-12 mb-6">
           <div className="flex items-end">
-            <div className="w-32 h-32 rounded-full border-4 border-background overflow-hidden bg-current-line">
+            <div className="w-32 h-32 rounded-full border-4 border-background overflow-hidden bg-gradient-to-br from-purple/20 to-cyan/20 shadow-lg">
               {user.avatar ? (
-                <img
+                <Image
                   src={user.avatar}
                   alt={user.name}
-                  className="w-full h-full object-cover"
+                  width={128}
+                  height={128}
+                  className="object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-purple/20 to-cyan/20 flex items-center justify-center">
+                <div className="w-full h-full flex items-center justify-center">
                   <User className="w-16 h-16 text-comment" />
                 </div>
               )}
             </div>
             <div className="ml-4 mb-4">
-              <h1 className="text-3xl font-bold">{user.name}</h1>
-              <p className="text-comment">{user.username}</p>
+              <h1 className="text-3xl font-bold text-foreground">{user.name}</h1>
+              <p className="text-comment">{user.email}</p>
             </div>
           </div>
 
           <div className="flex gap-2 mt-4 md:mt-0">
-            <Button variant="primary">
+            <Button variant="primary" className="hover:shadow-lg hover:scale-105 transition-transform">
               <Users className="w-4 h-4 mr-2" />
               Seguir
             </Button>
-            <Button variant="secondary">
-              <Edit className="w-4 h-4 mr-2" />
-              Editar Perfil
-            </Button>
-            <Button variant="ghost">
+            <Link href="/profile/edit">
+              <Button variant="secondary" className="hover:shadow-lg hover:scale-105 transition-transform">
+                <Edit className="w-4 h-4 mr-2" />
+                Editar Perfil
+              </Button>
+            </Link>
+            <Button variant="ghost" className="hover:shadow-lg hover:scale-105 transition-transform">
               <Settings className="w-4 h-4" />
             </Button>
           </div>
@@ -132,7 +195,7 @@ export default function ProfilePage() {
           {/* Bio and Details */}
           <div className="md:col-span-2 space-y-6">
             <div className="space-y-4">
-              <p className="text-lg">{user.bio}</p>
+              <p className="text-lg text-foreground/90">{user.bio}</p>
               
               <div className="flex flex-wrap gap-4 text-comment">
                 <span className="flex items-center gap-1">
@@ -173,48 +236,44 @@ export default function ProfilePage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-current-line rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold">{user.stats.nodesCreated}</p>
-                <p className="text-sm text-comment">Nodos Creados</p>
-              </div>
-              <div className="bg-current-line rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold">{user.stats.nodesSupported}</p>
-                <p className="text-sm text-comment">Nodos Apoyados</p>
-              </div>
-              <div className="bg-current-line rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold">${user.stats.totalImpact}</p>
-                <p className="text-sm text-comment">Impacto Total</p>
-              </div>
-              <div className="bg-current-line rounded-lg p-4 text-center">
-                <p className="text-2xl font-bold">{user.stats.followers}</p>
-                <p className="text-sm text-comment">Seguidores</p>
-              </div>
+              {[
+                { value: user.stats.nodesCreated, label: 'Nodos Creados', color: 'bg-purple/20 text-purple' },
+                { value: user.stats.nodesSupported, label: 'Nodos Apoyados', color: 'bg-pink/20 text-pink' },
+                { value: `$${user.stats.totalImpact}`, label: 'Impacto Total', color: 'bg-green/20 text-green' },
+                { value: user.stats.followers, label: 'Seguidores', color: 'bg-cyan/20 text-cyan' },
+              ].map((stat, index) => (
+                <div
+                  key={index}
+                  className={`rounded-lg p-4 text-center shadow-md hover:shadow-lg transition-shadow ${stat.color}`}
+                >
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                  <p className="text-sm text-comment">{stat.label}</p>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Impact Summary */}
-          <div className="bg-current-line rounded-lg p-6">
-            <h3 className="text-xl font-semibold mb-4">Resumen de Impacto</h3>
+          <div className="bg-current-line/20 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow">
+            <h3 className="text-xl font-semibold mb-4 text-foreground">Resumen de Impacto</h3>
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-primary" />
-                <span>3 proyectos completados</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-cyan" />
-                <span>250+ personas beneficiadas</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-red" />
-                <span>89% de satisfacción</span>
-              </div>
+              {[
+                { icon: <Target className="w-5 h-5 text-primary" />, text: '3 proyectos completados' },
+                { icon: <Users className="w-5 h-5 text-cyan" />, text: '250+ personas beneficiadas' },
+                { icon: <Heart className="w-5 h-5 text-red" />, text: '89% de satisfacción' },
+              ].map((item, index) => (
+                <div key={index} className="flex items-center gap-2 text-foreground/90">
+                  {item.icon}
+                  <span>{item.text}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-current-line mt-8">
+      <div className="border-b border-current-line/20 mt-8">
         <nav className="flex gap-8">
           {[
             { id: 'nodes', label: 'Nodos' },
@@ -242,31 +301,49 @@ export default function ProfilePage() {
               <Link
                 key={node.id}
                 href={`/nodes/${node.id}`}
-                className="group"
+                className="group block hover:scale-105 transform transition-transform duration-300"
               >
-                <article className="bg-current-line rounded-lg p-6 hover:bg-current-line/80 transition-colors">
+                <article className="bg-current-line/10 rounded-lg p-6 hover:bg-current-line/20 transition-colors border border-current-line/20 shadow-lg hover:shadow-xl">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        node.type === 'created' ? 'bg-primary/20 text-primary' : 'bg-secondary/20 text-secondary'
+                      <span className={`px-3 py-1 text-sm rounded-full ${
+                        node.category === 'social'
+                          ? 'bg-purple/20 text-purple'
+                          : node.category === 'ambiental'
+                          ? 'bg-green/20 text-green'
+                          : 'bg-pink/20 text-pink'
                       }`}>
-                        {node.type === 'created' ? 'Creado' : 'Apoyado'}
+                        {node.category}
                       </span>
-                      <h3 className="text-xl font-semibold mt-2 group-hover:text-primary transition-colors">
+                      <h3 className="text-2xl font-bold mt-3 group-hover:text-primary transition-colors">
                         {node.title}
                       </h3>
-                      <p className="text-comment mt-1">
+                      <p className="text-foreground/80 mt-2 line-clamp-2">
                         {node.description}
                       </p>
+                      <div className="flex items-center gap-2 mt-3 text-foreground/70">
+                        <MapPin className="w-5 h-5" />
+                        <span>{node.location}</span>
+                      </div>
+                    </div>
+                    {node.imageUrl && (
+                      <Image
+                        src={node.imageUrl}
+                        alt={node.title}
+                        width={120}
+                        height={120}
+                        className="object-cover rounded-lg shadow-md"
+                      />
+                    )}
+                  </div>
+                  <div className="flex justify-between items-center mt-6">
+                    <div className="text-sm text-foreground/70">
+                      <span className="font-semibold">Meta:</span> ${node.goal}
+                    </div>
+                    <div className="text-sm text-foreground/70">
+                      <span className="font-semibold">Días restantes:</span> {node.daysLeft}
                     </div>
                   </div>
-
-                  <ProgressBar
-                    current={node.current}
-                    goal={node.goal}
-                    daysLeft={node.daysLeft}
-                    backers={node.backers}
-                  />
                 </article>
               </Link>
             ))}
@@ -339,7 +416,7 @@ export default function ProfilePage() {
                   <span className="font-semibold">500</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>Huertos comunitarios</span>
+              
                   <span className="font-semibold">2</span>
                 </div>
               </div>
