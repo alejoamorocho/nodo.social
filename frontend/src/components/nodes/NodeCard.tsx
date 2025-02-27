@@ -20,6 +20,7 @@ interface Node {
   imageUrl: string
   createdAt: Date
   createdBy: string
+  createdByName?: string 
   products?: Product[]
   location?: string
 }
@@ -117,7 +118,7 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node }) => {
           {/* Created By and Date */}
           <div className="mt-4 text-sm text-foreground/70">
             <p>
-              <span className="font-semibold">Creado por:</span> {node.createdBy}
+              <span className="font-semibold">Creado por:</span> {node.createdByName || 'Usuario desconocido'}
             </p>
             <p>
               <span className="font-semibold">Fecha de creación:</span>{' '}

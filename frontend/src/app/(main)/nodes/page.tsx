@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, X } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { categories } from '@/infrastructure/mock/nodeData'
 import { db } from '../../../firebase'
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore'
 import { NodeCard } from '@/components/nodes/NodeCard'
 
 interface Node {
@@ -22,11 +22,17 @@ interface Node {
   createdBy: string
   name: string
   tags: string[]
+  createdByName?: string 
 }
 
-interface User {
-  id: string
-  name: string
+const getUserNameById = async (userId: string): Promise<string> => {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    return userDoc.exists() ? userDoc.data().name : 'Usuario desconocido'
+  } catch (error) {
+    console.error('Error fetching user name:', error)
+    return 'Usuario desconocido'
+  }
 }
 
 export default function NodesPage() {
@@ -35,32 +41,47 @@ export default function NodesPage() {
   const [nodes, setNodes] = useState<Node[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchNodes = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'nodes'))
-        const nodesData = await Promise.all(querySnapshot.docs.map(async (nodeDoc) => {
-          const nodeData = nodeDoc.data() as Node
-          const userDoc = await getDoc(doc(db, 'users', nodeData.createdBy))
-          const userData = userDoc.exists() ? userDoc.data() as User : { name: 'Usuario desconocido' }
-          return { ...nodeData, createdBy: userData.name }
+  const fetchNodes = async (category?: string) => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'nodes'))
+      const nodesData = await Promise.all(querySnapshot.docs
+        .filter(doc => !category || doc.data().category === category)
+        .map(async doc => {
+          const data = doc.data()
+          const createdByName = await getUserNameById(data.createdBy) // Obtener el nombre del creador
+          return {
+            id: doc.id,
+            title: data.title || '',
+            category: data.category || '',
+            location: data.location || '',
+            goal: data.goal || '',
+            duration: data.duration || '',
+            description: data.description || '',
+            rewards: data.rewards || '',
+            imageUrl: data.imageUrl || '',
+            createdAt: data.createdAt?.toDate() || new Date(),
+            followers: data.followers || [],
+            createdBy: data.createdBy || '',
+            name: data.name || '',
+            tags: data.tags || [],
+            createdByName, // Añadir el nombre del creador al objeto node
+          } as Node
         }))
-        setNodes(nodesData)
-      } catch (error) {
-        console.error('Error fetching nodes:', error)
-      } finally {
-        setLoading(false)
-      }
+      return nodesData
+    } catch (error) {
+      console.error('Error fetching nodes:', error)
+      return []
     }
-
-    fetchNodes()
-  }, [])
-
-  // Función para limpiar los filtros
-  const clearFilters = () => {
-    setSelectedCategory(null)
-    setSearchQuery('')
   }
+
+  useEffect(() => {
+    const fetchNodesData = async () => {
+      const nodesData = await fetchNodes(selectedCategory || undefined)
+      setNodes(nodesData)
+      setLoading(false)
+    }
+    fetchNodesData()
+  }, [selectedCategory])
 
   if (loading) {
     return <div>Loading...</div>
@@ -90,16 +111,17 @@ export default function NodesPage() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">
-          {/* Botón para limpiar filtros */}
-          {selectedCategory && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors border border-gray-300"
-            >
-              <X className="w-4 h-4" />
-              Quitar filtros
-            </button>
-          )}
+          {/* Botón para mostrar todos los nodos (sin filtro) */}
+          <button
+  onClick={() => setSelectedCategory(null)}
+  className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
+    !selectedCategory
+      ? 'bg-purple-500 text-white' // Resaltar si no hay categoría seleccionada
+      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+  }`}
+>
+  Todos
+</button>
 
           {/* Botones de categoría */}
           {categories.map((category) => (
@@ -110,7 +132,7 @@ export default function NodesPage() {
               )}
               className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-colors ${
                 selectedCategory === category.id
-                  ? `border-2 border-${category.color} bg-${category.color}/20 text-${category.color}`
+                  ? `border-2 border-${category.color} bg-${category.color}/20 text-${category.color}` // Resaltar la categoría seleccionada
                   : `bg-${category.color}/10 text-${category.color} hover:bg-${category.color}/20`
               }`}
             >
